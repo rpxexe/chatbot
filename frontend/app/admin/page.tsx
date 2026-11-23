@@ -1,14 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { SignIn, useAuth } from "@clerk/nextjs";
+import {
+  BookA, BookOpenText, ChartLine, Crosshair, FlaskConical, LifeBuoy, ListChecks, MessageCircleQuestion, Plug, Tags, type LucideIcon,
+} from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { api, ApiError, type Category, type Intent, type Kb } from "./api";
+import { Breadcrumb, BreadcrumbItem, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
+import {
+  Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarInset,
+  SidebarMenu, SidebarMenuBadge, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarRail, SidebarTrigger, useSidebar,
+} from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
+import { api, ApiError, type Category, type Intent, type Kb, type Token } from "./api";
 import { IntentsPanel } from "./intents";
 import { FaqsPanel } from "./faqs";
 import { DocumentsPanel } from "./documents";
@@ -17,6 +26,9 @@ import { PreviewPanel } from "./preview";
 import { SynonymsPanel } from "./synonyms";
 import { AnalyticsPanel } from "./analytics";
 import { HandoffPanel } from "./handoff";
+import { InstallPanel } from "./install";
+import { ChatbotSwitcher, ClerkNavUser, TokenNavUser } from "./nav";
+import { SetupGuide } from "./setup";
 
 const TOKEN_KEY = "kb-admin-token";
 const store = {
@@ -24,85 +36,227 @@ const store = {
   set: (v: string) => { try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch {} },
 };
 
-type Tab = "faqs" | "documents" | "categories" | "intents" | "synonyms" | "analytics" | "handoff";
-const TAB_LABEL: Record<Tab, string> = { faqs: "FAQs", documents: "Documents", categories: "Categories", intents: "Intents", synonyms: "Synonyms", analytics: "Analytics", handoff: "Handoff" };
+type Tab = "setup" | "faqs" | "documents" | "categories" | "intents" | "synonyms" | "analytics" | "handoff" | "install";
+const TAB_LABEL: Record<Tab, string> = {
+  setup: "Setup guide", faqs: "FAQs", documents: "Documents", categories: "Categories", intents: "Intents", synonyms: "Synonyms",
+  analytics: "Analytics", handoff: "Handoff", install: "Install",
+};
+const TAB_HINT: Record<Tab, string> = {
+  setup: "From an empty chatbot to answers on your website, in six steps",
+  faqs: "Questions and answers the chatbot quotes word for word",
+  documents: "Policies and guides, split into sections the chatbot can answer from",
+  categories: "Groups for FAQs and documents. Rename or remove them here",
+  intents: "What visitors are trying to do, matched by fixed word patterns",
+  synonyms: "Words your visitors use that mean the same as the words in your content",
+  analytics: "What visitors asked, and how the chatbot answered",
+  handoff: "How visitors reach a person, and the conversations your team answers",
+  install: "Put the chatbot on your website and choose where it may appear",
+};
+const NAV: { label: string; tabs: [Tab, LucideIcon][] }[] = [
+  { label: "Get started", tabs: [["setup", ListChecks]] },
+  { label: "Content", tabs: [["faqs", MessageCircleQuestion], ["documents", BookOpenText], ["categories", Tags]] },
+  { label: "Matching", tabs: [["intents", Crosshair], ["synonyms", BookA]] },
+  { label: "Visitors", tabs: [["analytics", ChartLine], ["handoff", LifeBuoy]] },
+  { label: "Website", tabs: [["install", Plug]] },
+];
+// The test panel sits beside the tabs that change answers. Everywhere else it opens from the header.
+const DOCKED: Tab[] = ["faqs", "documents", "intents", "synonyms"];
+
+// Set at build time. With Clerk, customers sign up and each sees only their own (or their organization's) chatbots.
+// Without it, sign-in is the operator's ADMIN_TOKEN.
+const CLERK = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
 export default function Admin() {
+  return CLERK ? <ClerkAdmin /> : <TokenAdmin />;
+}
+
+function ClerkAdmin() {
+  const { isLoaded, isSignedIn, getToken, orgId, userId } = useAuth();
+  // A stable function, so the dashboard's effects don't refetch on every render. Clerk refreshes the token itself.
+  const latest = useRef(getToken);
+  latest.current = getToken;
+  const token = useCallback(() => latest.current(), []);
+
+  if (!isLoaded) return null;
+  if (!isSignedIn) return <main className="mt-[10vh] flex justify-center p-4"><SignIn routing="hash" /></main>;
+  // Switching organization switches tenant: remount so nothing from the previous one is left on screen.
+  return <Dashboard key={orgId ?? userId} token={token} account={<ClerkNavUser />} />;
+}
+
+function TokenAdmin() {
   const [token, setToken] = useState("");
+  const [error, setError] = useState("");
+  useEffect(() => { setToken(store.get()); }, []);
+  const signOut = () => { store.set(""); setToken(""); };
+
+  if (!token) return <Login onToken={(t) => { store.set(t); setToken(t); setError(""); }} error={error} />;
+  return (
+    <Dashboard
+      token={token}
+      account={<TokenNavUser onSignOut={signOut} />}
+      onUnauthorized={(msg) => { signOut(); setError(msg); }}
+    />
+  );
+}
+
+function Dashboard({ token, account, onUnauthorized }: { token: Token; account: ReactNode; onUnauthorized?: (msg: string) => void }) {
   const [kbs, setKbs] = useState<Kb[] | null>(null);
   const [kbId, setKbId] = useState<number | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
   const [tab, setTab] = useState<Tab>("faqs");
+  const [testing, setTesting] = useState(false);
+  const firstLoad = useRef(true);
   const [version, setVersion] = useState(0);
   const [error, setError] = useState("");
 
   const bump = useCallback(() => setVersion((v) => v + 1), []);
   const fail = useCallback((e: unknown) => {
-    if (e instanceof ApiError && e.status === 401) { store.set(""); setToken(""); setKbs(null); }
+    if (e instanceof ApiError && e.status === 401 && onUnauthorized) return onUnauthorized(e.message);
     setError((e as Error).message);
-  }, []);
-
-  useEffect(() => { setToken(store.get()); }, []);
+  }, [onUnauthorized]);
 
   useEffect(() => {
-    if (!token) return;
     api<Kb[]>(token, "/kbs")
       .then((list) => {
         setKbs(list);
         setKbId((cur) => (cur && list.some((k) => k.id === cur) ? cur : list[0]?.id ?? null));
+        // A chatbot with no content yet opens on the setup guide.
+        if (firstLoad.current && list[0] && list[0].faq_count + list[0].document_count === 0) setTab("setup");
+        firstLoad.current = false;
       })
       .catch(fail);
   }, [token, version, fail]);
 
   useEffect(() => {
-    if (!token || !kbId) return;
+    if (!kbId) return;
     api<Category[]>(token, `/kbs/${kbId}/categories`).then(setCategories).catch(fail);
     api<Intent[]>(token, `/kbs/${kbId}/intents`).then(setIntents).catch(fail);
   }, [token, kbId, version, fail]);
 
-  if (!token) return <Login onToken={(t) => { store.set(t); setToken(t); setError(""); }} error={error} />;
-
   const kb = kbs?.find((k) => k.id === kbId) ?? null;
   const props = { token, kbId: kbId!, categories, intents, version, onChange: bump, onError: fail };
+  const counts: Partial<Record<Tab, number | null>> = kb
+    ? { faqs: kb.faq_count, documents: kb.document_count, categories: categories.length, intents: intents.length, handoff: kb.open_tickets || null }
+    : {};
 
   return (
-    <div className="mx-auto max-w-7xl p-4">
-      <header className="mb-4 flex flex-wrap items-center gap-3">
-        <h1 className="mr-auto text-xl font-semibold">Knowledge Base Admin</h1>
-        <KbPicker token={token} kbs={kbs ?? []} kbId={kbId} onSelect={setKbId} onChange={bump} onError={fail} />
-        <Button variant="link" onClick={() => { store.set(""); setToken(""); setKbs(null); }}>Sign out</Button>
-      </header>
-      {error && (
-        <Alert variant="destructive" className="mb-4">
-          <AlertDescription className="text-destructive">{error}</AlertDescription>
-          <AlertAction><Button variant="ghost" size="xs" onClick={() => setError("")}>Dismiss</Button></AlertAction>
-        </Alert>
-      )}
-      {kbs && kbs.length === 0 && <p className="text-muted-foreground">Create a knowledge base to get started.</p>}
-      {kb && (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="min-w-0">
-            <TabsList variant="line" className="mb-2 flex-wrap">
-              {(Object.keys(TAB_LABEL) as Tab[]).map((t) => {
-                const count = { faqs: kb.faq_count, documents: kb.document_count, categories: categories.length, intents: intents.length, synonyms: null, analytics: null, handoff: kb.open_tickets || null }[t];
-                return <TabsTrigger key={t} value={t}>{TAB_LABEL[t]}{count != null ? ` (${count})` : ""}</TabsTrigger>;
-              })}
-            </TabsList>
-            <TabsContent value="faqs"><FaqsPanel {...props} /></TabsContent>
-            <TabsContent value="documents"><DocumentsPanel {...props} /></TabsContent>
-            <TabsContent value="categories"><CategoriesPanel {...props} /></TabsContent>
-            <TabsContent value="intents"><IntentsPanel {...props} /></TabsContent>
-            <TabsContent value="synonyms"><SynonymsPanel {...props} /></TabsContent>
-            <TabsContent value="analytics"><AnalyticsPanel {...props} /></TabsContent>
-            <TabsContent value="handoff"><HandoffPanel token={token} kb={kb} onChange={bump} onError={fail} /></TabsContent>
-          </Tabs>
-          <Card className="lg:sticky lg:top-4">
-            <CardContent><PreviewPanel kb={kb} /></CardContent>
-          </Card>
+    <SidebarProvider>
+      <Sidebar collapsible="icon">
+        <SidebarHeader className="pt-3">
+          <ChatbotSwitcher token={token} kbs={kbs ?? []} kb={kb} onSelect={setKbId} onChange={bump} onError={fail} />
+        </SidebarHeader>
+        <SidebarContent className="group-data-[collapsible=icon]:pt-4">
+          {kb && NAV.map((group) => (
+            <SidebarGroup key={group.label} className="py-1 group-data-[collapsible=icon]:py-0.5">
+              <SidebarGroupLabel className="h-6 font-normal">{group.label}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.tabs.map(([t, Icon]) => (
+                    <SidebarMenuItem key={t}>
+                      <NavButton active={tab === t} label={TAB_LABEL[t]} icon={Icon} onSelect={() => setTab(t)} />
+                      {counts[t] != null && <SidebarMenuBadge className="font-mono font-normal text-muted-foreground">{counts[t]}</SidebarMenuBadge>}
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))}
+        </SidebarContent>
+        <SidebarFooter className="border-t border-sidebar-border pb-3">{account}</SidebarFooter>
+        <SidebarRail />
+      </Sidebar>
+
+      <SidebarInset>
+        <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-3 border-b bg-background/90 px-4 backdrop-blur-sm sm:px-6">
+          <SidebarTrigger className="-ml-1 text-muted-foreground" />
+          {kb && (
+            <Breadcrumb>
+              <BreadcrumbList>
+                <BreadcrumbItem className="max-w-48 truncate">{kb.name}</BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem><BreadcrumbPage>{TAB_LABEL[tab]}</BreadcrumbPage></BreadcrumbItem>
+              </BreadcrumbList>
+            </Breadcrumb>
+          )}
+          {kb && (
+            <Button variant="outline" size="sm" className={cn("ml-auto bg-card", DOCKED.includes(tab) && "xl:hidden")} onClick={() => setTesting(true)}>
+              <FlaskConical className="size-3.5" strokeWidth={1.75} aria-hidden="true" />Test
+            </Button>
+          )}
+        </header>
+
+        <div className="px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className={cn("mx-auto grid max-w-[1480px] items-start gap-8", kb && DOCKED.includes(tab) && "xl:grid-cols-[minmax(0,1fr)_380px]")}>
+            <div className="min-w-0">
+              {error && (
+                <Alert variant="destructive" className="mb-6">
+                  <AlertDescription className="text-destructive">{error}</AlertDescription>
+                  <AlertAction><Button variant="ghost" size="xs" onClick={() => setError("")}>Dismiss</Button></AlertAction>
+                </Alert>
+              )}
+              {kbs && kbs.length === 0 && (
+                <div className="max-w-md">
+                  <h1 className="text-2xl font-medium">No chatbots yet</h1>
+                  <p className="mt-2 text-subtle">Create one with New chatbot, then add the FAQs and documents it may answer from.</p>
+                </div>
+              )}
+              {kb && (
+                <>
+                  <header className="mb-6">
+                    <h1 className="text-2xl font-medium">{TAB_LABEL[tab]}</h1>
+                    <p className="mt-1 text-sm text-subtle">{TAB_HINT[tab]}</p>
+                  </header>
+                  {tab === "setup" && <SetupGuide kb={kb} onGo={setTab} onTest={() => setTesting(true)} />}
+                  {tab === "faqs" && <FaqsPanel {...props} />}
+                  {tab === "documents" && <DocumentsPanel {...props} />}
+                  {tab === "categories" && <CategoriesPanel {...props} />}
+                  {tab === "intents" && <IntentsPanel {...props} />}
+                  {tab === "synonyms" && <SynonymsPanel {...props} />}
+                  {tab === "analytics" && <AnalyticsPanel {...props} />}
+                  {tab === "handoff" && <HandoffPanel token={token} kb={kb} onChange={bump} onError={fail} />}
+                  {/* Keyed by KB so the websites field starts from the selected chatbot's list. */}
+                  {tab === "install" && <InstallPanel key={kb.id} token={token} kb={kb} onChange={bump} onError={fail} />}
+                </>
+              )}
+            </div>
+            {kb && DOCKED.includes(tab) && (
+              <aside className="hidden xl:sticky xl:top-22 xl:block">
+                <Card className="gap-0 py-0"><CardContent className="p-5"><PreviewPanel key={kb.id} kb={kb} /></CardContent></Card>
+              </aside>
+            )}
+          </div>
         </div>
+      </SidebarInset>
+
+      {kb && (
+        <Sheet open={testing} onOpenChange={setTesting}>
+          <SheetContent className="w-full overflow-y-auto p-6 pt-12 sm:max-w-md">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Test a question</SheetTitle>
+              <SheetDescription>Ask {kb.name} a question as a visitor would</SheetDescription>
+            </SheetHeader>
+            <PreviewPanel key={kb.id} kb={kb} />
+          </SheetContent>
+        </Sheet>
       )}
-    </div>
+    </SidebarProvider>
+  );
+}
+
+/** A sidebar entry. On mobile the sidebar is a sheet, so choosing a section also closes it. */
+function NavButton({ active, label, icon: Icon, onSelect }: { active: boolean; label: string; icon: LucideIcon; onSelect: () => void }) {
+  const { isMobile, setOpenMobile } = useSidebar();
+  return (
+    <SidebarMenuButton
+      isActive={active}
+      tooltip={label}
+      className="text-subtle data-active:text-foreground [&_svg]:size-[18px] [&>svg]:text-subtle data-active:[&>svg]:text-foreground group-data-[collapsible=icon]:p-[7px]!"
+      onClick={() => { onSelect(); if (isMobile) setOpenMobile(false); }}
+    >
+      <Icon strokeWidth={1.75} />
+      <span>{label}</span>
+    </SidebarMenuButton>
   );
 }
 
@@ -123,58 +277,15 @@ function Login({ onToken, error }: { onToken: (t: string) => void; error: string
     }
   }
   return (
-    <main className="mx-auto mt-[15vh] max-w-sm p-4">
-      <h1 className="mb-4 text-xl font-semibold">Knowledge Base Admin</h1>
+    <main className="mx-auto mt-[16vh] max-w-sm px-4">
+      <h1 className="text-2xl font-medium">Chatbot admin</h1>
+      <p className="mt-1 mb-6 text-sm text-subtle">Sign in with the operator token set as <span className="font-mono text-xs">ADMIN_TOKEN</span> on the server</p>
       <form onSubmit={submit} className="flex flex-col gap-2">
         <Label htmlFor="token">Admin token</Label>
-        <Input id="token" type="password" value={value} onChange={(e) => setValue(e.target.value)} autoComplete="current-password" required />
+        <Input id="token" type="password" className="bg-card" value={value} onChange={(e) => setValue(e.target.value)} autoComplete="current-password" required />
         {msg && <Alert variant="destructive"><AlertDescription className="text-destructive">{msg}</AlertDescription></Alert>}
-        <Button disabled={busy || !value.trim()}>Sign in</Button>
+        <Button className="mt-2" disabled={busy || !value.trim()}>Sign in</Button>
       </form>
     </main>
-  );
-}
-
-function KbPicker({ token, kbs, kbId, onSelect, onChange, onError }: {
-  token: string; kbs: Kb[]; kbId: number | null; onSelect: (id: number) => void; onChange: () => void; onError: (e: unknown) => void;
-}) {
-  const [creating, setCreating] = useState(false);
-  const [name, setName] = useState("");
-  const kb = kbs.find((k) => k.id === kbId);
-
-  async function create(e: FormEvent) {
-    e.preventDefault();
-    try {
-      const { id } = await api(token, "/kbs", "POST", { name });
-      setName(""); setCreating(false); onSelect(id); onChange();
-    } catch (err) { onError(err); }
-  }
-  async function remove() {
-    if (!kb || !confirm(`Delete "${kb.name}" and ALL its FAQs, documents, categories, intents and synonyms? This cannot be undone.`)) return;
-    try { await api(token, `/kbs/${kb.id}`, "DELETE"); onChange(); } catch (err) { onError(err); }
-  }
-
-  if (creating) {
-    return (
-      <form className="flex flex-wrap items-center gap-2" onSubmit={create}>
-        <Label htmlFor="kb-name" className="sr-only">New knowledge base name</Label>
-        <Input id="kb-name" className="w-56" value={name} onChange={(e) => setName(e.target.value)} placeholder="Knowledge base name" maxLength={100} autoFocus required />
-        <Button>Create</Button>
-        <Button type="button" variant="outline" onClick={() => setCreating(false)}>Cancel</Button>
-      </form>
-    );
-  }
-  return (
-    <div className="flex flex-wrap items-center gap-2">
-      <Select value={kbId ? String(kbId) : ""} onValueChange={(v) => onSelect(Number(v))}>
-        <SelectTrigger id="kb" aria-label="Knowledge base" className="min-w-48"><SelectValue placeholder="Knowledge base" /></SelectTrigger>
-        <SelectContent>
-          {kbs.map((k) => <SelectItem key={k.id} value={String(k.id)}>{k.name} ({k.slug})</SelectItem>)}
-        </SelectContent>
-      </Select>
-      <Button variant="outline" onClick={() => setCreating(true)}>New</Button>
-      {kb && <Button variant="link" asChild><a href={`/?kb=${encodeURIComponent(kb.slug)}`} target="_blank" rel="noreferrer">Open chat</a></Button>}
-      {kb && <Button variant="destructive" onClick={remove}>Delete</Button>}
-    </div>
   );
 }

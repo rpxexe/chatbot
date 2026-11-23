@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { api, splitKeywords, type Intent } from "./api";
-import { EnabledSwitch, Hint, ItemCard } from "./ui";
+import { api, splitKeywords, type Intent, type Token } from "./api";
+import { Pencil, Trash2 } from "lucide-react";
+import { EnabledSwitch, Hint, ItemCard, RowAction } from "./ui";
 
-type Props = { token: string; kbId: number; intents: Intent[]; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; kbId: number; intents: Intent[]; onChange: () => void; onError: (e: unknown) => void };
 
 export function IntentsPanel({ token, kbId, intents, onChange, onError }: Props) {
   const [editing, setEditing] = useState<Intent | "new" | null>(null);
@@ -47,7 +48,7 @@ export function IntentsPanel({ token, kbId, intents, onChange, onError }: Props)
             ) : (
               <>
                 <div className="flex items-start justify-between gap-3">
-                  <strong className="font-semibold">{i.name}</strong>
+                  <strong className="font-medium">{i.name}</strong>
                   <EnabledSwitch checked={i.enabled} onChange={() => toggle(i)} />
                 </div>
                 <div className="flex flex-wrap gap-1">{i.patterns.map((p) => <Badge key={p} variant="outline">{p}</Badge>)}</div>
@@ -55,8 +56,8 @@ export function IntentsPanel({ token, kbId, intents, onChange, onError }: Props)
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-muted-foreground">{i.faq_count} FAQs · {i.document_count} documents tagged</span>
                   <span className="flex-1" />
-                  <Button variant="outline" size="sm" onClick={() => setEditing(i)}>Edit</Button>
-                  <Button variant="destructive" size="sm" onClick={() => remove(i)}>Delete</Button>
+                  <RowAction icon={Pencil} label="Edit" onClick={() => setEditing(i)} />
+                  <RowAction icon={Trash2} label="Delete" danger onClick={() => remove(i)} />
                 </div>
               </>
             )}
@@ -68,7 +69,7 @@ export function IntentsPanel({ token, kbId, intents, onChange, onError }: Props)
 }
 
 function IntentForm({ token, kbId, intent, onDone, onCancel, onError }: {
-  token: string; kbId: number; intent?: Intent; onDone: () => void; onCancel: () => void; onError: (e: unknown) => void;
+  token: Token; kbId: number; intent?: Intent; onDone: () => void; onCancel: () => void; onError: (e: unknown) => void;
 }) {
   const [name, setName] = useState(intent?.name ?? "");
   const [patterns, setPatterns] = useState(intent?.patterns.join(", ") ?? "");

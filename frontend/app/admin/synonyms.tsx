@@ -8,10 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { api, splitKeywords } from "./api";
-import { ItemCard } from "./ui";
+import { api, splitKeywords, type Token } from "./api";
+import { Pencil, Trash2 } from "lucide-react";
+import { ItemCard, RowAction } from "./ui";
 
-type Props = { token: string; kbId: number; version: number; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; kbId: number; version: number; onChange: () => void; onError: (e: unknown) => void };
 type Group = { id: number; terms: string[] };
 
 export function SynonymsPanel({ token, kbId, version, onChange, onError }: Props) {
@@ -71,8 +72,8 @@ export function SynonymsPanel({ token, kbId, version, onChange, onError }: Props
               <div className="flex flex-wrap items-center gap-2">
                 {g.terms.map((t) => <Badge key={t} variant="outline">{t}</Badge>)}
                 <span className="flex-1" />
-                <Button variant="outline" size="sm" onClick={() => { setEditing(g.id); setEditText(g.terms.join(", ")); }}>Edit</Button>
-                <Button variant="destructive" size="sm" onClick={() => remove(g)}>Delete</Button>
+                <RowAction icon={Pencil} label="Edit" onClick={() => { setEditing(g.id); setEditText(g.terms.join(", ")); }} />
+                <RowAction icon={Trash2} label="Delete" danger onClick={() => remove(g)} />
               </div>
             )}
           </ItemCard>

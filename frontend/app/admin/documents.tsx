@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { api, type Category, type Doc, type Intent, type Section } from "./api";
+import { api, download, type Category, type Doc, type Intent, type Section, type Token } from "./api";
 import { IntentSelect } from "./intents";
-import { EnabledSwitch, Hint, ItemCard } from "./ui";
+import { Download, Folder, Trash2 } from "lucide-react";
+import { EnabledSwitch, Hint, ItemCard, Meta, RowAction } from "./ui";
 
-type Props = { token: string; kbId: number; categories: Category[]; intents: Intent[]; version: number; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; kbId: number; categories: Category[]; intents: Intent[]; version: number; onChange: () => void; onError: (e: unknown) => void };
 type Mode = "file" | "url" | "text";
 
 export function DocumentsPanel({ token, kbId, categories, intents, version, onChange, onError }: Props) {
@@ -38,26 +39,32 @@ export function DocumentsPanel({ token, kbId, categories, intents, version, onCh
   return (
     <div className="flex flex-col gap-3">
       <AddContent {...{ token, kbId, categories, onChange, onError }} />
-      {docs?.length === 0 && <p className="text-muted-foreground">No documents yet.</p>}
-      <ul className="flex flex-col gap-2.5">
+      {docs?.length === 0 && <p className="text-muted-foreground">No documents yet</p>}
+      <ul className="flex flex-col gap-2">
         {docs?.map((d) => (
           <ItemCard key={d.id} enabled={d.enabled}>
-            <div className="flex items-start justify-between gap-3">
-              <strong className="font-semibold">{d.title}</strong>
-              <EnabledSwitch checked={d.enabled} onChange={() => patch(d, { enabled: !d.enabled })} />
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <h3 className="item-title font-medium">{d.title}</h3>
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                  <Meta className="font-mono">{d.source_type}</Meta>
+                  {d.source_type === "url" && d.source_name
+                    ? <a href={d.source_name} target="_blank" rel="noreferrer" className="max-w-72 truncate text-xs text-subtle underline underline-offset-4 hover:text-foreground">{d.source_name}</a>
+                    : d.source_name !== d.title && <Meta className="max-w-72 truncate">{d.source_name}</Meta>}
+                  <Meta className="font-mono tabular-nums">{d.section_count} {d.section_count === 1 ? "section" : "sections"}</Meta>
+                  {d.category && <Badge variant="secondary" className="font-normal">{d.category}</Badge>}
+                </div>
+              </div>
+              <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">
+                <EnabledSwitch checked={d.enabled} onChange={() => patch(d, { enabled: !d.enabled })} />
+                {d.has_file && <RowAction icon={Download} label="Download original" onClick={() => download(token, `/documents/${d.id}/file`, d.source_name ?? d.title).catch(onError)} />}
+                <RowAction icon={Folder} label="Change category" onClick={() => recategorize(d)} />
+                <RowAction icon={Trash2} label="Delete" danger onClick={() => remove(d)} />
+              </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary">{d.source_type}</Badge>
-              {d.source_type === "url" && d.source_name
-                ? <a href={d.source_name} target="_blank" rel="noreferrer" className="max-w-72 truncate text-primary underline underline-offset-4">{d.source_name}</a>
-                : <span className="max-w-72 truncate text-muted-foreground">{d.source_name}</span>}
-              <span className="text-muted-foreground">{d.section_count} sections</span>
-              {d.category && <Badge variant="secondary">{d.category}</Badge>}
-              <IntentSelect id={`doc-intent-${d.id}`} label={`Intent for ${d.title}`} className="w-auto" intents={intents} value={d.intent_id} onChange={(v) => patch(d, { intent_id: v })} />
-              <span className="flex-1" />
-              <Button variant="outline" size="sm" onClick={() => setOpen(open === d.id ? null : d.id)} aria-expanded={open === d.id}>{open === d.id ? "Hide text" : "View text"}</Button>
-              <Button variant="outline" size="sm" onClick={() => recategorize(d)}>Category</Button>
-              <Button variant="destructive" size="sm" onClick={() => remove(d)}>Delete</Button>
+              <IntentSelect id={`doc-intent-${d.id}`} label={`Intent for ${d.title}`} className="h-7 w-auto text-xs" intents={intents} value={d.intent_id} onChange={(v) => patch(d, { intent_id: v })} />
+              <Button variant="ghost" size="sm" className="text-subtle" onClick={() => setOpen(open === d.id ? null : d.id)} aria-expanded={open === d.id}>{open === d.id ? "Hide sections" : "Show sections"}</Button>
             </div>
             {open === d.id && <Sections token={token} docId={d.id} onChange={onChange} onError={onError} />}
           </ItemCard>
@@ -134,7 +141,7 @@ function AddContent({ token, kbId, categories, onChange, onError }: Omit<Props, 
           <Input id="doc-cat" list="doc-category-list" value={category} onChange={(e) => setCategory(e.target.value)} maxLength={100} />
           <datalist id="doc-category-list">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
           <div className="flex flex-wrap items-center gap-2">
-            <Button disabled={busy}>{busy ? "Processing…" : "Add to knowledge base"}</Button>
+            <Button disabled={busy}>{busy ? "Processing" : "Add to knowledge base"}</Button>
             {result && <span className="text-sm text-green-700 dark:text-green-400" role="status">{result}</span>}
           </div>
         </form>
@@ -143,7 +150,7 @@ function AddContent({ token, kbId, categories, onChange, onError }: Omit<Props, 
   );
 }
 
-function Sections({ token, docId, onChange, onError }: { token: string; docId: number; onChange: () => void; onError: (e: unknown) => void }) {
+function Sections({ token, docId, onChange, onError }: { token: Token; docId: number; onChange: () => void; onError: (e: unknown) => void }) {
   const [sections, setSections] = useState<Section[] | null>(null);
   const [rev, setRev] = useState(0);
 

@@ -5,14 +5,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { api, splitKeywords, type Category, type Faq, type Intent } from "./api";
+import { api, splitKeywords, type Category, type Faq, type Intent, type Token } from "./api";
 import { IntentSelect } from "./intents";
-import { EnabledSwitch, Hint, ItemCard } from "./ui";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { EnabledSwitch, Hint, ItemCard, Meta, RowAction } from "./ui";
 
-type Props = { token: string; kbId: number; categories: Category[]; intents: Intent[]; version: number; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; kbId: number; categories: Category[]; intents: Intent[]; version: number; onChange: () => void; onError: (e: unknown) => void };
 
 // Radix Select forbids "" as an item value.
 const ALL = "__all__";
@@ -43,42 +45,51 @@ export function FaqsPanel({ token, kbId, categories, intents, version, onChange,
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center gap-2">
         <Label htmlFor="faq-q" className="sr-only">Search FAQs</Label>
-        <Input id="faq-q" type="search" className="min-w-40 flex-1" placeholder="Search FAQs…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <InputGroup className="min-w-40 flex-1 bg-card dark:bg-card">
+          <InputGroupInput id="faq-q" type="search" placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} />
+          <InputGroupAddon><Search strokeWidth={1.75} aria-hidden="true" /></InputGroupAddon>
+        </InputGroup>
         <Select value={cat || ALL} onValueChange={(v) => setCat(v === ALL ? "" : v)}>
-          <SelectTrigger id="faq-cat" aria-label="Filter by category" className="min-w-40"><SelectValue /></SelectTrigger>
+          <SelectTrigger id="faq-cat" aria-label="Filter by category" className="min-w-40 bg-card"><SelectValue /></SelectTrigger>
           <SelectContent>
             <SelectItem value={ALL}>All categories</SelectItem>
             {categories.map((c) => <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>)}
           </SelectContent>
         </Select>
-        <Button onClick={() => setEditing("new")}>Add FAQ</Button>
+        <Button onClick={() => setEditing("new")}><Plus className="size-4" strokeWidth={1.75} aria-hidden="true" />Add FAQ</Button>
       </div>
 
       {editing === "new" && (
         <Card><CardContent><FaqForm {...{ token, kbId, categories, intents, onError }} onDone={() => { setEditing(null); onChange(); }} onCancel={() => setEditing(null)} /></CardContent></Card>
       )}
 
-      {faqs?.length === 0 && <p className="text-muted-foreground">No FAQs{q || cat ? " match" : " yet"}.</p>}
-      <ul className="flex flex-col gap-2.5">
+      {faqs?.length === 0 && <p className="text-muted-foreground">No FAQs{q || cat ? " match" : " yet"}</p>}
+      {faqs && faqs.length > 0 && <Meta className="font-mono tabular-nums">{faqs.length} {faqs.length === 1 ? "FAQ" : "FAQs"}</Meta>}
+      <ul className="flex flex-col gap-2">
         {faqs?.map((f) => (
           <ItemCard key={f.id} enabled={f.enabled}>
             {editing !== "new" && editing?.id === f.id ? (
               <FaqForm {...{ token, kbId, categories, intents, onError }} faq={f} onDone={() => { setEditing(null); onChange(); }} onCancel={() => setEditing(null)} />
             ) : (
               <>
-                <div className="flex items-start justify-between gap-3">
-                  <strong className="font-semibold">{f.question}</strong>
-                  <EnabledSwitch checked={f.enabled} onChange={() => toggle(f)} />
+                <div className="flex items-start gap-3">
+                  <div className="min-w-0 flex-1">
+                    <h3 className="item-title font-medium">{f.question}</h3>
+                    <p className="mt-1 line-clamp-2 text-subtle">{f.answer}</p>
+                  </div>
+                  <div className="-mt-1 -mr-2 flex shrink-0 items-center gap-1">
+                    <EnabledSwitch checked={f.enabled} onChange={() => toggle(f)} />
+                    <RowAction icon={Pencil} label="Edit" onClick={() => setEditing(f)} />
+                    <RowAction icon={Trash2} label="Delete" danger onClick={() => remove(f)} />
+                  </div>
                 </div>
-                <p className="line-clamp-3">{f.answer}</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  {f.category && <Badge variant="secondary">{f.category}</Badge>}
-                  {f.intent && <Badge variant="outline">intent: {f.intent}</Badge>}
-                  {f.keywords.map((k) => <Badge key={k} variant="outline" className="text-muted-foreground">{k}</Badge>)}
-                  <span className="flex-1" />
-                  <Button variant="outline" size="sm" onClick={() => setEditing(f)}>Edit</Button>
-                  <Button variant="destructive" size="sm" onClick={() => remove(f)}>Delete</Button>
-                </div>
+                {(f.category || f.intent || f.keywords.length > 0) && (
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    {f.category && <Badge variant="secondary" className="font-normal">{f.category}</Badge>}
+                    {f.intent && <Meta className="font-mono">#{f.intent}</Meta>}
+                    {f.keywords.length > 0 && <Meta>{f.keywords.join(" · ")}</Meta>}
+                  </div>
+                )}
               </>
             )}
           </ItemCard>
@@ -90,7 +101,7 @@ export function FaqsPanel({ token, kbId, categories, intents, version, onChange,
 
 /** Edits `faq`, or adds a new FAQ (optionally starting from `initialQuestion`, e.g. an unanswered visitor question). */
 export function FaqForm({ token, kbId, categories, intents, faq, initialQuestion, onDone, onCancel, onError }: {
-  token: string; kbId: number; categories: Category[]; intents: Intent[]; faq?: Faq; initialQuestion?: string; onDone: () => void; onCancel: () => void; onError: (e: unknown) => void;
+  token: Token; kbId: number; categories: Category[]; intents: Intent[]; faq?: Faq; initialQuestion?: string; onDone: () => void; onCancel: () => void; onError: (e: unknown) => void;
 }) {
   const [question, setQuestion] = useState(faq?.question ?? initialQuestion ?? "");
   const [answer, setAnswer] = useState(faq?.answer ?? "");

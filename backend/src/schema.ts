@@ -217,4 +217,15 @@ CREATE TABLE ticket_messages (
 );
 CREATE INDEX ticket_messages_ticket_idx ON ticket_messages (ticket_id, id);
 `,
+
+  // 9: Phase 11 — multi-tenant. Every knowledge base (= chatbot) belongs to one tenant: a Clerk organization or user id,
+  // or 'admin' for the ADMIN_TOKEN operator. Existing knowledge bases go to 'admin'. `websites` lists the origins allowed
+  // to embed the chatbot (empty = any). documents.file_key is the original upload in S3 storage, when configured.
+  /* sql */ `
+ALTER TABLE knowledge_bases ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'admin';
+ALTER TABLE knowledge_bases ALTER COLUMN owner_id DROP DEFAULT;
+CREATE INDEX knowledge_bases_owner_idx ON knowledge_bases (owner_id);
+ALTER TABLE knowledge_bases ADD COLUMN websites TEXT[] NOT NULL DEFAULT '{}';
+ALTER TABLE documents ADD COLUMN file_key TEXT;
+`,
 ];

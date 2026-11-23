@@ -2,9 +2,11 @@
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { api, type Category } from "./api";
+import { Pencil, Trash2 } from "lucide-react";
+import { RowAction } from "./ui";
+import { api, type Category, type Token } from "./api";
 
-type Props = { token: string; categories: Category[]; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; categories: Category[]; onChange: () => void; onError: (e: unknown) => void };
 
 export function CategoriesPanel({ token, categories, onChange, onError }: Props) {
   async function rename(c: Category) {
@@ -31,8 +33,8 @@ export function CategoriesPanel({ token, categories, onChange, onError }: Props)
               <TableCell>{c.faq_count}</TableCell>
               <TableCell>{c.document_count}</TableCell>
               <TableCell className="flex justify-end gap-2">
-                <Button variant="outline" size="sm" onClick={() => rename(c)}>Rename</Button>
-                <Button variant="destructive" size="sm" onClick={() => remove(c)}>Delete</Button>
+                <RowAction icon={Pencil} label="Rename" onClick={() => rename(c)} />
+                <RowAction icon={Trash2} label="Delete" danger onClick={() => remove(c)} />
               </TableCell>
             </TableRow>
           ))}
