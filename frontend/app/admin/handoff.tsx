@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import { api, type Handoff, type Kb } from "./api";
+import { api, type Handoff, type Kb, type Token } from "./api";
 import { EnabledSwitch, Hint, ItemCard } from "./ui";
 
 type TicketRow = {
@@ -22,7 +22,7 @@ type Ticket = Omit<TicketRow, "last_message" | "last_author" | "message_count"> 
 };
 type Status = "open" | "closed" | "all";
 
-type Props = { token: string; kb: Kb; onChange: () => void; onError: (e: unknown) => void };
+type Props = { token: Token; kb: Kb; onChange: () => void; onError: (e: unknown) => void };
 
 // Agents need to see live-chat messages without reloading.
 const REFRESH_MS = 5000;
@@ -60,7 +60,7 @@ function Settings({ token, kb, onChange, onError }: Props) {
       <CardContent>
         <form className="flex flex-col gap-3" onSubmit={save}>
           <div>
-            <h2 className="font-semibold">Talk to a human</h2>
+            <h2 className="font-medium">Talk to a person</h2>
             <p className="text-sm text-muted-foreground">
               Offered when the bot can’t answer, or when a visitor asks for a person (the <code>human_agent</code> intent).
               Leave everything empty to turn handoff off.
@@ -94,7 +94,7 @@ function Settings({ token, kb, onChange, onError }: Props) {
   );
 }
 
-function Inbox({ token, kbId, onChange, onError }: { token: string; kbId: number; onChange: () => void; onError: (e: unknown) => void }) {
+function Inbox({ token, kbId, onChange, onError }: { token: Token; kbId: number; onChange: () => void; onError: (e: unknown) => void }) {
   const [status, setStatus] = useState<Status>("open");
   const [rows, setRows] = useState<TicketRow[] | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -111,15 +111,15 @@ function Inbox({ token, kbId, onChange, onError }: { token: string; kbId: number
   return (
     <section aria-labelledby="inbox-h" className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-3">
-        <h2 id="inbox-h" className="mr-auto font-semibold">Conversations with your team</h2>
+        <h2 id="inbox-h" className="mr-auto font-medium">Conversations with your team</h2>
         <ToggleGroup type="single" variant="outline" spacing={0} value={status} onValueChange={(v) => v && setStatus(v as Status)} aria-label="Ticket status">
           <ToggleGroupItem value="open">Open</ToggleGroupItem>
           <ToggleGroupItem value="closed">Closed</ToggleGroupItem>
           <ToggleGroupItem value="all">All</ToggleGroupItem>
         </ToggleGroup>
       </div>
-      {rows === null ? <p className="text-muted-foreground">Loading…</p>
-        : rows.length === 0 ? <p className="text-sm text-muted-foreground">No {status === "all" ? "" : `${status} `}conversations.</p>
+      {rows === null ? <p className="text-muted-foreground">Loading</p>
+        : rows.length === 0 ? <p className="text-sm text-muted-foreground">No {status === "all" ? "" : `${status} `}conversations</p>
         : (
           <ul className="flex flex-col gap-2">
             {rows.map((r) => (
@@ -127,15 +127,15 @@ function Inbox({ token, kbId, onChange, onError }: { token: string; kbId: number
                 {openId === r.id ? (
                   <Thread id={r.id} token={token} onClose={() => setOpenId(null)} onChange={() => { load(); onChange(); }} onError={onError} />
                 ) : (
-                  <button type="button" className="flex flex-col gap-1 text-left" onClick={() => setOpenId(r.id)}>
+                  <Button type="button" variant="ghost" className="h-auto w-full flex-col items-start gap-1 p-0 text-left font-normal whitespace-normal hover:bg-transparent dark:hover:bg-transparent" onClick={() => setOpenId(r.id)}>
                     <span className="flex flex-wrap items-center gap-2">
-                      <strong>{r.name || r.email || "Anonymous visitor"}</strong>
+                      <span className="font-medium">{r.name || r.email || "Anonymous visitor"}</span>
                       {r.live && <Badge variant="secondary">live chat</Badge>}
                       {r.status === "open" && r.last_author === "visitor" && <Badge>awaiting reply</Badge>}
                       <span className="text-sm text-muted-foreground">{when(r.updated_at)} · {r.message_count} message{r.message_count === 1 ? "" : "s"}</span>
                     </span>
                     <span className="line-clamp-2 text-sm text-muted-foreground">{r.last_author === "agent" ? "You: " : ""}{r.last_message}</span>
-                  </button>
+                  </Button>
                 )}
               </ItemCard>
             ))}
@@ -145,7 +145,7 @@ function Inbox({ token, kbId, onChange, onError }: { token: string; kbId: number
   );
 }
 
-function Thread({ id, token, onClose, onChange, onError }: { id: string; token: string; onClose: () => void; onChange: () => void; onError: (e: unknown) => void }) {
+function Thread({ id, token, onClose, onChange, onError }: { id: string; token: Token; onClose: () => void; onChange: () => void; onError: (e: unknown) => void }) {
   const [t, setT] = useState<Ticket | null>(null);
   const [reply, setReply] = useState("");
   const [busy, setBusy] = useState(false);

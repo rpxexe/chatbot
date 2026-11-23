@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "@/components/ui/input-group";
 import { Label } from "@/components/ui/label";
 
 type Source =
@@ -18,6 +19,10 @@ type Msg =
   | { role: "user"; text: string }
   | { role: "bot"; text: string; found: boolean; clarification: string | null; source: Source; related: { id: number; question: string }[]; handoff: Handoff };
 
+/** The article an answer was quoted from. Small talk (intent responses) has none. */
+const cite = (s: Source) =>
+  !s || s.type === "intent" ? null : s.type === "faq" ? s.question : s.heading ? `${s.title} · ${s.heading}` : s.title;
+
 export default function Chat() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
@@ -27,8 +32,8 @@ export default function Chat() {
   const conversationId = useRef<string | undefined>(undefined);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [messages, busy]);
 
   async function ask(text: string) {
     text = text.trim();
@@ -51,62 +56,96 @@ export default function Chat() {
       conversationId.current = data.conversationId;
       setMessages((m) => [...m, { role: "bot", text: data.answer, found: data.found, clarification: data.clarification, source: data.source, related: data.related, handoff: data.handoff }]);
     } catch (e) {
-      setMessages((m) => [...m, { role: "bot", text: `Error: ${(e as Error).message}`, found: false, clarification: null, source: null, related: [], handoff: null }]);
+      setMessages((m) => [...m, { role: "bot", text: `Something went wrong: ${(e as Error).message}`, found: false, clarification: null, source: null, related: [], handoff: null }]);
     } finally {
       setBusy(false);
     }
   }
 
-  const bubble = (role: Msg["role"]) =>
-    cn(
-      "max-w-[85%] rounded-xl px-3.5 py-2.5",
-      role === "user" ? "self-end bg-primary text-primary-foreground" : "self-start border bg-card text-card-foreground",
-    );
-
   return (
-    <main className="mx-auto flex h-dvh max-w-3xl flex-col p-4">
-      <h1 className="mb-3 text-xl font-semibold">Help Assistant</h1>
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto pb-3" aria-live="polite">
-        {messages.length === 0 && <p className="text-muted-foreground">Ask a question, e.g. “What is your refund policy?”</p>}
-        {messages.map((m, i) => (
-          <div key={i} className={bubble(m.role)}>
-            <p className="whitespace-pre-wrap">{m.text}</p>
-            {m.role === "bot" && m.clarification && <p className="mt-2 border-t pt-2 text-sm text-muted-foreground">{m.clarification}</p>}
-            {m.role === "bot" && m.source && m.source.type !== "intent" && (
-              <small className="mt-1.5 block text-muted-foreground">
-                {m.source.type === "faq"
-                  ? `From FAQ${m.source.category ? ` · ${m.source.category}` : ""}`
-                  : `From “${m.source.title}”${m.source.heading ? ` · ${m.source.heading}` : ""}`}
-              </small>
-            )}
-            {m.role === "bot" && m.handoff && <HandoffLinks h={m.handoff} />}
-            {m.role === "bot" && m.related.length > 0 && (
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                <small className="text-muted-foreground">{m.found && !m.clarification ? "Related:" : "Did you mean:"}</small>
-                {m.related.map((r) => (
-                  <Button key={r.id} type="button" variant="outline" size="sm" className="h-auto rounded-full py-1 whitespace-normal" onClick={() => ask(r.question)} disabled={busy}>
-                    {r.question}
-                  </Button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-        {busy && <div className={bubble("bot")}><p>…</p></div>}
-        <div ref={endRef} />
+    <div className="flex h-dvh flex-col">
+      <header className="border-b bg-background/90 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-2xl items-center px-4 sm:px-6">
+          <h1 className="font-medium">Help</h1>
+          <span className="ml-3 text-sm text-muted-foreground">Answers from our help articles</span>
+        </div>
+      </header>
+
+      <main className="flex-1 overflow-y-auto" aria-live="polite">
+        <div className="mx-auto flex max-w-2xl flex-col gap-8 px-4 py-8 sm:px-6">
+          {messages.length === 0 && (
+            <div className="mt-[12vh] max-w-md">
+              <h2 className="text-3xl font-medium tracking-[-0.01em]">What do you need to know?</h2>
+              <p className="mt-3 text-subtle">
+                Ask in your own words. Every answer comes from our help articles and names the one it came from.
+              </p>
+            </div>
+          )}
+          {messages.map((m, i) => m.role === "user" ? (
+            <p key={i} className="max-w-[85%] self-end rounded-2xl rounded-br-md bg-secondary px-4 py-2.5 whitespace-pre-wrap">{m.text}</p>
+          ) : (
+            <BotMessage key={i} m={m} onAsk={ask} busy={busy} />
+          ))}
+          {busy && <p className="pl-[18px] text-sm text-muted-foreground">Looking it up</p>}
+          <div ref={endRef} />
+        </div>
+      </main>
+
+      <footer className="pb-4 sm:pb-6">
+        <form
+          className="mx-auto max-w-2xl px-4 sm:px-6"
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            ask(input);
+          }}
+        >
+          <Label htmlFor="q" className="sr-only">Your question</Label>
+          <InputGroup className="h-12 rounded-xl bg-card shadow-[0_1px_2px_rgb(0_0_0/0.05)] dark:bg-card">
+            <InputGroupInput
+              id="q"
+              className="pl-4 text-base md:text-base"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              maxLength={500}
+              placeholder="Ask a question"
+              autoComplete="off"
+            />
+            <InputGroupAddon align="inline-end">
+              <InputGroupButton type="submit" variant="default" size="icon-sm" className="rounded-lg aria-disabled:opacity-40" aria-label="Send" aria-disabled={busy || !input.trim()}>
+                <ArrowUp strokeWidth={1.75} aria-hidden="true" />
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
+        </form>
+      </footer>
+    </div>
+  );
+}
+
+function BotMessage({ m, onAsk, busy }: { m: Extract<Msg, { role: "bot" }>; onAsk: (q: string) => void; busy: boolean }) {
+  const source = cite(m.source);
+  return (
+    <div className="flex flex-col gap-3">
+      {/* Signature: an answer quoted from the help articles carries the green rule and its source. */}
+      <div className={cn("border-l-2 pl-4", source ? "border-brand" : "border-transparent")}>
+        <p className={cn("whitespace-pre-wrap", !m.found && "text-subtle")}>{m.text}</p>
+        {source && <p className="mt-2 font-mono text-xs text-muted-foreground">From “{source}”</p>}
       </div>
-      <form
-        className="flex gap-2"
-        onSubmit={(e: FormEvent) => {
-          e.preventDefault();
-          ask(input);
-        }}
-      >
-        <Label htmlFor="q" className="sr-only">Your question</Label>
-        <Input id="q" className="h-10 flex-1" value={input} onChange={(e) => setInput(e.target.value)} maxLength={500} placeholder="Type your question…" autoComplete="off" />
-        <Button type="submit" size="lg" className="h-10 px-4" disabled={busy || !input.trim()}>Send</Button>
-      </form>
-    </main>
+      {m.clarification && <p className="pl-[18px] text-sm text-subtle">{m.clarification}</p>}
+      {m.handoff && <HandoffLinks h={m.handoff} />}
+      {m.related.length > 0 && (
+        <div className="flex flex-col gap-2 pl-[18px]">
+          <span className="text-xs text-muted-foreground">{m.found && !m.clarification ? "Related" : "Did you mean"}</span>
+          <div className="flex flex-wrap gap-2">
+            {m.related.map((r) => (
+              <Button key={r.id} type="button" variant="outline" size="sm" className="h-auto rounded-lg bg-card px-3 py-1.5 text-left text-sm font-normal whitespace-normal" onClick={() => onAsk(r.question)} disabled={busy}>
+                {r.question}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -122,11 +161,12 @@ function HandoffLinks({ h }: { h: NonNullable<Handoff> }) {
     h.contactUrl && { label: "Contact form", href: h.contactUrl },
   ].filter(Boolean) as { label: string; href: string }[];
   if (!links.length) return null;
-  if (!open) return <Button type="button" variant="outline" size="sm" className="mt-2 rounded-full" onClick={() => setOpen(true)}>Talk to a human</Button>;
+  const pill = "h-auto rounded-lg bg-card px-3 py-1.5 text-sm font-normal";
+  if (!open) return <div className="pl-[18px]"><Button type="button" variant="outline" size="sm" className={pill} onClick={() => setOpen(true)}>Talk to a person</Button></div>;
   return (
-    <div className="mt-2 flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-2 pl-[18px]">
       {links.map((l) => (
-        <Button key={l.label} variant="outline" size="sm" className="rounded-full" asChild>
+        <Button key={l.label} variant="outline" size="sm" className={pill} asChild>
           <a href={l.href} {...(l.href.startsWith("mailto:") ? {} : { target: "_blank", rel: "noopener" })}>{l.label}</a>
         </Button>
       ))}
