@@ -373,3 +373,76 @@ test("handoff: channels offered when unanswered or requested; tickets and live t
   assert.equal((await req("GET", `/tickets/not-a-uuid`, undefined, {})).status, 404);
   assert.equal((await req("GET", `/admin/tickets/${t.id}`, undefined, {})).status, 401);
 });
+
+test("tenants: each sees and changes only its own chatbots", async () => {
+  const run = Date.now();
+  const a = { ...auth, "x-tenant-id": `test-tenant-a-${run}` };
+  const b = { ...auth, "x-tenant-id": `test-tenant-b-${run}` };
+  const r = await req("POST", "/admin/kbs", { name: "Tenant A bot" }, a);
+  assert.equal(r.status, 201);
+  const { id: kbA, slug: slugA } = await r.json();
+  assert.match(slugA, /^tenant-a-bot-[0-9a-f]{6}$/, "generated slugs get a random suffix");
+  try {
+    const faq = await (await req("POST", `/admin/kbs/${kbA}/faqs`, { question: "What is the tenant secret?", answer: "Only A knows." }, a)).json();
+    const doc = await (await req("POST", `/admin/kbs/${kbA}/documents`, { title: "A doc", text: "# Part\nA only text." }, a)).json();
+    const section = (await (await req("GET", `/admin/documents/${doc.id}`, undefined, a)).json()).sections[0];
+    const intent = (await (await req("GET", `/admin/kbs/${kbA}/intents`, undefined, a)).json())[0];
+
+    assert.deepEqual(await (await req("GET", "/admin/kbs", undefined, b)).json(), []);
+    assert.ok(!(await (await req("GET", "/admin/kbs")).json()).some((k: any) => k.id === kbA), "operator default tenant doesn't see it either");
+
+    const attempts: [string, string, unknown?][] = [
+      ["GET", `/admin/kbs/${kbA}/faqs`], ["GET", `/admin/kbs/${kbA}/analytics`], ["GET", `/admin/kbs/${kbA}/tickets`],
+      ["POST", `/admin/kbs/${kbA}/faqs`, { question: "x", answer: "y" }],
+      ["PATCH", `/admin/kbs/${kbA}`, { name: "taken" }], ["PATCH", `/admin/faqs/${faq.id}`, { answer: "changed" }],
+      ["PATCH", `/admin/intents/${intent.id}`, { enabled: false }], ["PATCH", `/admin/sections/${section.id}`, { body: "changed" }],
+      ["GET", `/admin/documents/${doc.id}`], ["GET", `/admin/documents/${doc.id}/file`],
+      ["DELETE", `/admin/sections/${section.id}`], ["DELETE", `/admin/documents/${doc.id}`], ["DELETE", `/admin/faqs/${faq.id}`],
+      ["DELETE", `/admin/kbs/${kbA}`],
+    ];
+    for (const [method, path, body] of attempts) assert.equal((await req(method, path, body, b)).status, 404, `${method} ${path}`);
+
+    // Nothing changed, and visitors still reach the chatbot by its public slug.
+    assert.equal((await chat("What is the tenant secret?", slugA)).answer, "Only A knows.");
+    assert.equal((await (await req("GET", `/admin/documents/${doc.id}`, undefined, a)).json()).sections[0].body, "A only text.");
+  } finally {
+    assert.equal((await req("DELETE", `/admin/kbs/${kbA}`, undefined, a)).status, 204);
+  }
+});
+
+test("websites: only listed sites and the app itself may use a chatbot from a browser", async () => {
+  const set = (websites: unknown) => req("PATCH", `/admin/kbs/${kb}`, { websites });
+  assert.equal((await set(["shop.example.com", "https://www.example.com/any/path", "shop.example.com"])).status, 200);
+  const mine = (await (await req("GET", "/admin/kbs")).json()).find((k: any) => k.id === kb);
+  assert.deepEqual(mine.websites, ["https://shop.example.com", "https://www.example.com"]);
+
+  const from = (origin?: string) => req("POST", "/chat", { message: "hello", kb: slug, preview: true }, origin ? { origin } : {});
+  assert.equal((await from("https://shop.example.com")).status, 200);
+  assert.equal((await from("https://elsewhere.example")).status, 403);
+  assert.equal((await from(new URL(process.env.APP_URL || "http://localhost:3000").origin)).status, 200);
+  assert.equal((await from()).status, 200, "no Origin header: not a browser, not limited");
+
+  assert.equal((await set(["ftp://files.example.com"])).status, 400);
+  assert.equal((await set("example.com")).status, 400);
+  assert.equal((await set([])).status, 200);
+  assert.equal((await from("https://elsewhere.example")).status, 200, "an empty list allows every site");
+});
+
+test("uploads keep the original file in S3 storage", { skip: !process.env.S3_BUCKET && "S3_BUCKET not set" }, async () => {
+  const content = "# Returns\n\nReturn anything within 30 days.\n";
+  const fd = new FormData();
+  fd.append("file", new Blob([content], { type: "text/markdown" }), "returns policy.md");
+  const doc = await (await req("POST", `/admin/kbs/${kb}/upload`, fd)).json();
+  assert.equal((await (await req("GET", `/admin/kbs/${kb}/documents`)).json()).find((d: any) => d.id === doc.id).has_file, true);
+
+  const f = await req("GET", `/admin/documents/${doc.id}/file`);
+  assert.equal(f.status, 200);
+  assert.equal(await f.text(), content);
+  assert.equal(f.headers.get("content-disposition"), "attachment; filename*=UTF-8''returns%20policy.md");
+
+  const { rows: [{ file_key }] } = await pool.query("SELECT file_key FROM documents WHERE id = $1", [doc.id]);
+  assert.ok(file_key.startsWith(`kb/${kb}/`));
+  assert.equal((await req("DELETE", `/admin/documents/${doc.id}`)).status, 204);
+  const { getFile } = await import("../src/storage.js");
+  await assert.rejects(getFile(file_key), "deleting the document deletes the stored file");
+});

@@ -1,3 +1,5 @@
+# Development: `docker compose up -d` starts Postgres and S3-compatible storage.
+# Whole stack: `docker compose --profile app up -d --build`. Secrets come from a .env file next to this one.
 services:
   db:
     image: postgres:17
@@ -10,5 +12,47 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # S3-compatible storage for original uploads (SeaweedFS). Creates the "chatbot" bucket on start. S3 API on :8333.
+  s3:
+    image: chrislusf/seaweedfs:4.55
+    command: mini -dir=/data -bucket=chatbot -master.telemetry=false
+    environment:
+      AWS_ACCESS_KEY_ID: chatbot
+      AWS_SECRET_ACCESS_KEY: chatbot-dev-secret
+    ports:
+      - "8333:8333"
+    volumes:
+      - files:/data
+
+  backend:
+    profiles: [app]
+    build: ./backend
+    depends_on: [db, s3]
+    environment:
+      DATABASE_URL: postgres://chatbot:chatbot@db:5432/chatbot
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+      CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+      APP_URL: ${APP_URL:-http://localhost:3000}
+      S3_BUCKET: chatbot
+      S3_ENDPOINT: http://s3:8333
+      AWS_ACCESS_KEY_ID: chatbot
+      AWS_SECRET_ACCESS_KEY: chatbot-dev-secret
+    ports:
+      - "${API_PORT:-4000}:4000"
+
+  frontend:
+    profiles: [app]
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${CLERK_PUBLISHABLE_KEY:-}
+    depends_on: [backend]
+    environment:
+      CLERK_SECRET_KEY: ${CLERK_SECRET_KEY:-}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
 volumes:
   pgdata:
+  files:

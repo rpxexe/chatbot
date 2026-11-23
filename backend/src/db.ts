@@ -67,11 +67,14 @@ export type SectionInput = { heading: string; body: string };
 
 export async function insertDocument(
   db: Db,
-  doc: { kbId: number; title: string; category?: string | null; sourceType: string; sourceName?: string | null; sections: SectionInput[]; intentId?: number | null },
+  doc: {
+    kbId: number; title: string; category?: string | null; sourceType: string; sourceName?: string | null; sections: SectionInput[];
+    intentId?: number | null; fileKey?: string | null;
+  },
 ) {
   const { rows } = await db.query(
-    `INSERT INTO documents (kb_id, title, category_id, source_type, source_name, intent_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id`,
-    [doc.kbId, doc.title, await categoryId(db, doc.kbId, doc.category), doc.sourceType, doc.sourceName ?? null, doc.intentId ?? null],
+    `INSERT INTO documents (kb_id, title, category_id, source_type, source_name, intent_id, file_key) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id`,
+    [doc.kbId, doc.title, await categoryId(db, doc.kbId, doc.category), doc.sourceType, doc.sourceName ?? null, doc.intentId ?? null, doc.fileKey ?? null],
   );
   for (const [i, s] of doc.sections.entries()) {
     await db.query(

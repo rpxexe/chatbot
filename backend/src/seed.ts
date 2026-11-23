@@ -14,7 +14,7 @@ await migrate();
 try {
   await tx(async (c) => {
     const { rows } = await c.query(
-      `INSERT INTO knowledge_bases (name, slug) VALUES ('Default', 'default')
+      `INSERT INTO knowledge_bases (name, slug, owner_id) VALUES ('Default', 'default', 'admin')
        ON CONFLICT (slug) DO UPDATE SET slug = EXCLUDED.slug RETURNING id`,
     );
     const kbId: number = rows[0].id;

@@ -6,20 +6,24 @@ Matching uses PostgreSQL full-text search.
 ```
 frontend/  Next.js: chat UI at /, admin dashboard at /admin (proxies /api to the backend)
 backend/   Node.js + TypeScript + Express REST API
-docker-compose.yml  PostgreSQL 17
+docker-compose.yml  PostgreSQL 17, S3-compatible storage (SeaweedFS), and the app images
 ```
 
 ## Run
 
 ```bash
-docker compose up -d                                  # Postgres on :5432
-cp backend/.env.example backend/.env                  # then set ADMIN_TOKEN
+docker compose up -d                                  # Postgres on :5432, S3 storage on :8333
+cp backend/.env.example backend/.env                  # then set ADMIN_TOKEN (and the Clerk keys, see Phase 11)
+cp frontend/.env.example frontend/.env.local          # optional: Clerk keys
 cd backend  && npm i && npm run seed && npm run dev   # API on :4000
 cd frontend && npm i && npm run dev                   # UI on :3000
 ```
 
 - Chat: http://localhost:3000 for the `default` knowledge base. Use `/?kb=<slug>` for another one.
-- Admin: http://localhost:3000/admin. Sign in with `ADMIN_TOKEN`.
+- Admin: http://localhost:3000/admin. Sign in with Clerk when it is configured, else with `ADMIN_TOKEN`.
+
+Everything in Docker: put `ADMIN_TOKEN` and the Clerk keys in a `.env` next to `docker-compose.yml`, then
+`docker compose --profile app up -d --build`. Set `API_PORT` / `WEB_PORT` to publish on ports other than 4000 / 3000. The frontend image bakes in the Clerk publishable key, so rebuild it after changing that key.
 
 The backend scripts load `backend/.env`. Variables already set in the shell take precedence.
 
@@ -30,7 +34,11 @@ Other knowledge bases are left alone. Use it in development only, and check whic
 |---|---|---|
 | `DATABASE_URL` | backend | `postgres://chatbot:chatbot@localhost:5432/chatbot` |
 | `PORT` | backend | `4000` |
-| `ADMIN_TOKEN` | backend | none. Admin API returns 503 until set. |
+| `ADMIN_TOKEN` | backend | none. Operator key, see Phase 11. Admin API returns 503 if neither this nor Clerk is set. |
+| `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | backend | none. Customer sign-in. |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY` | frontend (publishable key read at build) | none. Empty = admin token sign-in. |
+| `APP_URL` | backend | `http://localhost:3000`. The frontend's public URL. |
+| `S3_BUCKET`, `S3_ENDPOINT`, `S3_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | backend | none. Without `S3_BUCKET`, original uploads are not kept. |
 | `API_URL` | frontend (read at build/dev start) | `http://localhost:4000` |
 
 ## Tests
@@ -72,10 +80,10 @@ URL import only fetches public `http(s)` addresses. Private, loopback and link-l
 
 | Table | Purpose |
 |---|---|
-| `knowledge_bases` | name and unique `slug` |
+| `knowledge_bases` | one chatbot: name, unique public `slug`, `owner_id` (tenant), `websites` allowed to embed it, handoff settings |
 | `categories` | per knowledge base, unique by name |
 | `faqs` | question, answer, keywords[], category, enabled |
-| `documents` | title, category, enabled, source type (`file` / `url` / `manual`) and source name |
+| `documents` | title, category, enabled, source type (`file` / `url` / `manual`), source name, and `file_key` of the original upload in storage |
 | `sections` | searchable chunks of a document (heading + body) |
 | `synonyms` | per-knowledge-base synonym groups (`terms text[]`) |
 | `intents` | per knowledge base: `name`, `patterns text[]`, `response`, `enabled`. `faqs.intent_id` and `documents.intent_id` tag content. |
@@ -238,6 +246,38 @@ shows what the visitor asked the bot first, and lets you close or reopen a conve
 The hosted chat page at `/` offers the link channels.
 
 
+## Multi-tenant platform (Phase 11)
+
+```
+Tenant (Clerk organization, or a Clerk user without one)
+ └── Chatbot = knowledge base (public slug)
+      ├── FAQs, documents (+ original files in S3), categories, intents, synonyms
+      ├── Websites allowed to embed it
+      ├── Conversations, analytics, handoff tickets
+      └── Widget: <script src=".../widget.js" data-kb="<slug>">
+```
+
+**Sign-in.** With Clerk configured, customers sign up on `/admin`. The tenant is the Clerk organization they have active,
+otherwise their own user, and everyone in an organization shares its chatbots. Switch organization with the switcher in the header.
+To use organizations, turn them on in the Clerk dashboard.
+
+**Operator.** `ADMIN_TOKEN` is the platform operator's key, for scripts, support and tests. It acts as tenant `admin`, which owns every
+knowledge base created before Phase 11. With the header `X-Tenant-Id: <org_… or user_…>` it acts as that customer. Treat it like a root password.
+To give the existing knowledge bases to a customer:
+`UPDATE knowledge_bases SET owner_id = '<org_… or user_…>' WHERE owner_id = 'admin';`
+
+**Isolation.** Every admin route resolves the knowledge base that owns the requested row and checks it belongs to the caller's tenant
+(`kbOf` in `routes.ts`). Another tenant's ids answer 404, never 403, so they are not confirmed to exist. Search indexes, conversations
+and analytics were already per knowledge base.
+
+**Websites** (admin tab "Install"). The tab shows the embed snippet. When the list is not empty, `/api/chat` and `POST /api/tickets` refuse
+browsers on other sites with 403. The app's own origin (`APP_URL`) is always allowed, for the hosted chat page and the preview.
+
+**Storage.** With `S3_BUCKET` set, uploaded files (not CSV FAQ imports) are stored under `kb/<id>/` before the document row is written.
+The Documents tab shows **Original** to download them. Deleting a document or knowledge base deletes its files.
+`docker compose up -d` runs SeaweedFS as the S3 server for development. MinIO no longer publishes Docker images.
+In production, use any S3-compatible store: AWS S3, Cloudflare R2, or Backblaze B2.
+
 Public:
 
 | Method | Path | Body |
@@ -251,12 +291,13 @@ Public:
 The chat response also has `handoff`: `null`, or `{ reason: "unanswered" | "requested", question, ...channels }`.
 CORS is open on `/api/chat` and `/api/tickets*` only.
 
-Admin. Every call needs the header `Authorization: Bearer <ADMIN_TOKEN>`:
+Admin. Every call needs `Authorization: Bearer <Clerk session token>`, or `Bearer <ADMIN_TOKEN>` with an optional `X-Tenant-Id`.
+Every call only sees the caller's tenant. Ids from another tenant return 404.
 
 | Method | Path | Body / query |
 |---|---|---|
-| GET, POST | `/api/admin/kbs` | POST `{ name, slug? }` |
-| PATCH, DELETE | `/api/admin/kbs/:id` | PATCH `{ name?, handoff? }`. `handoff` is `{ email?, contactUrl?, whatsapp?, ticket?, live? }`. DELETE removes all of the knowledge base's content. |
+| GET, POST | `/api/admin/kbs` | POST `{ name, slug? }`. Without `slug`, one is made from the name plus a random suffix. Slugs are unique across all tenants (409 if taken). |
+| PATCH, DELETE | `/api/admin/kbs/:id` | PATCH `{ name?, handoff?, websites? }`. `handoff` is `{ email?, contactUrl?, whatsapp?, ticket?, live? }`. `websites` is a list of sites like `"shop.example.com"` (stored as origins, max 50). DELETE removes all of the knowledge base's content and stored files. |
 | GET | `/api/admin/kbs/:kb/categories` | |
 | GET, POST | `/api/admin/kbs/:kb/synonyms` | GET returns `{ custom: [{ id, terms }], builtin }`. POST `{ terms: string[] }` (2–30 terms) |
 | PATCH, DELETE | `/api/admin/synonyms/:id` | PATCH `{ terms }` |
@@ -269,6 +310,7 @@ Admin. Every call needs the header `Authorization: Bearer <ADMIN_TOKEN>`:
 | POST | `/api/admin/kbs/:kb/upload` | multipart: `file`, optional `category` |
 | POST | `/api/admin/kbs/:kb/import-url` | `{ url, category? }` |
 | GET, PATCH, DELETE | `/api/admin/documents/:id` | GET includes sections. PATCH `{ title?, category?, enabled?, intent_id? }` |
+| GET | `/api/admin/documents/:id/file` | The original upload, as a download. 404 when none is stored. |
 | PATCH, DELETE | `/api/admin/sections/:id` | PATCH `{ heading?, body? }` |
 | GET | `/api/admin/kbs/:kb/tickets` | `?status=open` (default), `closed` or `all` |
 | GET | `/api/admin/tickets/:id` | Ticket, messages, and the visitor's earlier questions to the bot |
@@ -282,8 +324,11 @@ Upload and URL import return `{ type: "document", id, title, sections }`, or `{ 
 ## Known limits
 
 - Follow-ups are resolved by adding words, not by understanding them. "How long does it take?" after a refund question still matches the shipping FAQ, because that scores higher on its own.
-- There is one shared admin token, with no user accounts or audit log.
-- The token is kept in the browser's `sessionStorage` until the tab closes or you sign out.
+- No audit log, and no roles inside a Clerk organization: every member can change and delete everything.
+- In token mode (no Clerk), the token is kept in the browser's `sessionStorage` until the tab closes or you sign out.
+- Websites stop other sites from embedding a chatbot in a browser. They are not access control: a script can still call `/api/chat` with any slug.
+- URL imports keep only the extracted text, not the fetched page. Deleting a stored file is best effort: a storage error leaves an orphaned object, logged by the backend.
+- No billing or plan limits per tenant.
 - No OCR, so scanned PDFs are rejected. Pages that need JavaScript to render are not supported.
 - Re-importing a file or URL adds a new document. It does not replace the old one.
 - The question log is kept forever. There is no retention limit or export yet.
