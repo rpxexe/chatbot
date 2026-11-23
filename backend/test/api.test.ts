@@ -107,6 +107,15 @@ test("chat returns entities and the order_status intent", async () => {
   assert.deepEqual(r.entities, { order_id: ["ORD-92831"] });
 });
 
+test("health checks the database, at /health and /api/health", async () => {
+  for (const url of [`${base.replace(/\/api$/, "")}/health`, `${base}/health`]) {
+    const r = await fetch(url);
+    assert.equal(r.status, 200);
+    const body = await r.json();
+    assert.deepEqual([body.ok, body.db], [true, "up"]);
+  }
+});
+
 test("chat validates input and unknown KB", async () => {
   assert.equal((await req("POST", "/chat", {}, {})).status, 400);
   assert.equal((await req("POST", "/chat", { message: "x".repeat(501) }, {})).status, 400);
