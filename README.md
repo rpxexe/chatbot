@@ -4,7 +4,7 @@ Question → knowledge base → answer. No LLM, no embeddings, no AI APIs.
 Matching uses PostgreSQL full-text search.
 
 ```
-frontend/  Next.js: chat UI at /, admin dashboard at /admin (proxies /api to the backend)
+frontend/  Next.js: landing page at /, chat at /chat, admin dashboard at /admin (proxies /api to the backend)
 backend/   Node.js + TypeScript + Express REST API
 docker-compose.yml  PostgreSQL 17, S3-compatible storage (SeaweedFS), and the app images
 ```
@@ -19,7 +19,8 @@ cd backend  && npm i && npm run seed && npm run dev   # API on :4000
 cd frontend && npm i && npm run dev                   # UI on :3000
 ```
 
-- Chat: http://localhost:3000 for the `default` knowledge base. Use `/?kb=<slug>` for another one.
+- Landing page with a live demo: http://localhost:3000
+- Chat: http://localhost:3000/chat for the `default` knowledge base. Use `/chat?kb=<slug>` for another one.
 - Admin: http://localhost:3000/admin. Sign in with Clerk when it is configured, else with `ADMIN_TOKEN`.
 
 Everything in Docker: put `ADMIN_TOKEN` and the Clerk keys in a `.env` next to `docker-compose.yml`, then
