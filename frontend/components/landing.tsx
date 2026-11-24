@@ -121,19 +121,19 @@ export function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_minmax(0,30rem)] lg:py-24">
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-12 lg:py-8">
           <div className="max-w-xl">
             <Badge data-hero variant="outline" className="rounded-full border-brand/30 bg-brand-soft px-3 py-1 text-brand">
               No LLM. No AI APIs.
             </Badge>
-            <h1 data-hero className="mt-6 text-4xl font-medium tracking-[-0.02em] text-balance sm:text-5xl lg:text-6xl">
+            <h1 data-hero className="mt-5 text-4xl font-medium tracking-[-0.02em] text-balance sm:text-5xl xl:text-6xl">
               Answers from your help content, with the source attached.
             </h1>
-            <p data-hero className="mt-6 text-lg text-subtle text-pretty">
+            <p data-hero className="mt-5 text-lg text-subtle text-pretty">
               {NAME} answers your customers from your own FAQs and articles. It names where each answer came from,
               asks when it isn't sure, and hands off to a person when it can't help.
             </p>
-            <div data-hero className="mt-8 flex flex-wrap gap-3">
+            <div data-hero className="mt-7 flex flex-wrap gap-3">
               <Button size="lg" asChild>
                 <a href="#demo">Try the demo</a>
               </Button>
@@ -141,7 +141,7 @@ export function Landing() {
             </div>
           </div>
 
-          <Card id="demo" data-demo className="h-[34rem] gap-0 overflow-hidden py-0 shadow-sm">
+          <Card id="demo" data-demo className="h-[30rem] gap-0 lg:h-[min(34rem,calc(100svh-6rem))] lg:min-h-[24rem] overflow-hidden py-0 shadow-sm">
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <span className="size-2 rounded-full bg-brand" aria-hidden="true" />
               <span className="text-sm font-medium">Live demo</span>
