@@ -100,7 +100,7 @@ export function Landing() {
   return (
     <div ref={root} className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur-sm">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-6 px-4 sm:px-6">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2 font-medium">
             <span className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
               <MessagesSquare className="size-4" strokeWidth={2} aria-hidden="true" />
@@ -121,7 +121,7 @@ export function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-12 lg:py-8">
+        <section className="mx-auto grid max-w-7xl items-center gap-10 px-4 py-10 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1fr_minmax(0,34rem)] lg:gap-12 lg:py-8">
           <div className="max-w-xl">
             <Badge data-hero variant="outline" className="rounded-full border-brand/30 bg-brand-soft px-3 py-1 text-brand">
               No LLM. No AI APIs.
@@ -161,7 +161,7 @@ export function Landing() {
         </section>
 
         <section id="features" className="border-t bg-card/50">
-          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
+          <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
             <div data-reveal className="max-w-2xl">
               <h2 className="text-3xl font-medium tracking-[-0.01em] sm:text-4xl">Built to be trusted, not to sound clever</h2>
               <p className="mt-4 text-subtle">It only says what your content says. When that isn't enough, it tells the visitor and gets them to a person.</p>
@@ -183,7 +183,7 @@ export function Landing() {
         </section>
 
         <section id="how" className="border-t">
-          <div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:py-28">
+          <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 lg:py-28">
             <h2 data-reveal className="max-w-2xl text-3xl font-medium tracking-[-0.01em] sm:text-4xl">Live on your site in three steps</h2>
             <div className="relative mt-12">
               <div data-step-line className="absolute top-5 right-[16%] left-[16%] hidden h-px origin-left bg-brand/40 md:block" aria-hidden="true" />
@@ -212,7 +212,7 @@ export function Landing() {
         </section>
 
         <section id="setup" className="border-t bg-card/50">
-          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,22rem)_1fr] lg:py-28">
+          <div className="mx-auto grid max-w-7xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,22rem)_1fr] lg:py-28">
             <div data-reveal className="lg:sticky lg:top-28 lg:self-start">
               <p className="font-mono text-xs text-muted-foreground">Setup guide</p>
               <h2 className="mt-2 text-3xl font-medium tracking-[-0.01em] sm:text-4xl">From sign-up to your first answered visitor</h2>
@@ -244,7 +244,7 @@ export function Landing() {
         </section>
 
         <section className="border-t">
-          <div data-reveal className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 md:flex-row md:items-center md:justify-between">
+          <div data-reveal className="mx-auto flex max-w-7xl flex-col items-start gap-6 px-4 py-20 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-3xl font-medium tracking-[-0.01em]">Set up your chatbot</h2>
               <p className="mt-2 text-subtle">Add your content, check the answers, embed it. Your dashboard is waiting.</p>
@@ -257,7 +257,7 @@ export function Landing() {
       </main>
 
       <footer className="border-t">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <span>{NAME}</span>
           <Separator className="sm:hidden" />
           <span>© {new Date().getFullYear()}</span>
