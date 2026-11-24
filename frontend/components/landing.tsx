@@ -36,6 +36,18 @@ const STEPS = [
   { icon: Code2, title: "Embed it", text: "Paste one script tag on your site. The widget does the rest." },
 ];
 
+// Mirrors the in-app guide (app/admin/setup.tsx), written for someone who hasn't signed up yet.
+const SETUP: { title: string; text: string; optional?: boolean }[] = [
+  { title: "Create your account", text: "Sign up and your dashboard opens. Your organization is your workspace, so teammates can join it." },
+  { title: "Create a chatbot", text: "Give it a name. Each chatbot has its own content, settings and public link, so one account can run several sites." },
+  { title: "Add what it may answer from", text: "Write FAQs in your customers’ words. Upload policies and guides as PDF, Word, Markdown, text or a CSV of FAQs, or import a web page. It never answers from anything else." },
+  { title: "Test it like a visitor", text: "Ask real questions, including vague and misspelled ones. Each answer shows its source and match score. If the wrong answer wins, reword the FAQ or add keywords." },
+  { title: "Teach it your visitors’ words", text: "Synonyms link the words visitors use to yours, like “money back” to “refund”. Intents catch what someone wants, like asking for a person.", optional: true },
+  { title: "Choose how visitors reach a person", text: "When it can’t answer, it offers the channels you set: email, a contact form, WhatsApp, a ticket to your team, or a live chat." },
+  { title: "Put it on your website", text: "Paste one line of code before </body>. List your website addresses so no other site can show your chatbot." },
+  { title: "Check what visitors ask", text: "Analytics lists the questions it couldn’t answer. Turn each into an FAQ in one click, and the next visitor gets an answer." },
+];
+
 export function Landing() {
   const root = useRef<HTMLDivElement>(null);
 
@@ -74,6 +86,12 @@ export function Landing() {
           ease: "none",
           scrollTrigger: { trigger: "#how", start: "top 70%", end: "center 50%", scrub: true },
         });
+
+        gsap.fromTo("[data-setup-line]", { scaleY: 0 }, {
+          scaleY: 1,
+          ease: "none",
+          scrollTrigger: { trigger: "[data-setup-steps]", start: "top 70%", end: "bottom 70%", scrub: true },
+        });
       });
     },
     { scope: root },
@@ -90,7 +108,7 @@ export function Landing() {
             {NAME}
           </Link>
           <nav className="hidden items-center gap-1 text-sm md:flex">
-            {[["#features", "Features"], ["#how", "How it works"], ["#demo", "Try it"]].map(([href, label]) => (
+            {[["#features", "Features"], ["#how", "How it works"], ["#setup", "Setup guide"], ["#demo", "Try it"]].map(([href, label]) => (
               <Button key={href} variant="ghost" size="sm" className="text-subtle" asChild>
                 <a href={href}>{label}</a>
               </Button>
@@ -103,19 +121,19 @@ export function Landing() {
       </header>
 
       <main>
-        <section className="mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 lg:grid-cols-[1fr_minmax(0,30rem)] lg:py-24">
+        <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-10 sm:px-6 lg:min-h-[calc(100svh-4rem)] lg:grid-cols-[1fr_minmax(0,30rem)] lg:gap-12 lg:py-8">
           <div className="max-w-xl">
             <Badge data-hero variant="outline" className="rounded-full border-brand/30 bg-brand-soft px-3 py-1 text-brand">
               No LLM. No AI APIs.
             </Badge>
-            <h1 data-hero className="mt-6 text-4xl font-medium tracking-[-0.02em] text-balance sm:text-5xl lg:text-6xl">
+            <h1 data-hero className="mt-5 text-4xl font-medium tracking-[-0.02em] text-balance sm:text-5xl xl:text-6xl">
               Answers from your help content, with the source attached.
             </h1>
-            <p data-hero className="mt-6 text-lg text-subtle text-pretty">
+            <p data-hero className="mt-5 text-lg text-subtle text-pretty">
               {NAME} answers your customers from your own FAQs and articles. It names where each answer came from,
               asks when it isn't sure, and hands off to a person when it can't help.
             </p>
-            <div data-hero className="mt-8 flex flex-wrap gap-3">
+            <div data-hero className="mt-7 flex flex-wrap gap-3">
               <Button size="lg" asChild>
                 <a href="#demo">Try the demo</a>
               </Button>
@@ -123,7 +141,7 @@ export function Landing() {
             </div>
           </div>
 
-          <Card id="demo" data-demo className="h-[34rem] gap-0 overflow-hidden py-0 shadow-sm">
+          <Card id="demo" data-demo className="h-[30rem] gap-0 lg:h-[min(34rem,calc(100svh-6rem))] lg:min-h-[24rem] overflow-hidden py-0 shadow-sm">
             <div className="flex items-center gap-2 border-b px-4 py-3">
               <span className="size-2 rounded-full bg-brand" aria-hidden="true" />
               <span className="text-sm font-medium">Live demo</span>
@@ -193,7 +211,39 @@ export function Landing() {
           </div>
         </section>
 
-        <section className="border-t bg-card/50">
+        <section id="setup" className="border-t bg-card/50">
+          <div className="mx-auto grid max-w-6xl gap-12 px-4 py-20 sm:px-6 lg:grid-cols-[minmax(0,22rem)_1fr] lg:py-28">
+            <div data-reveal className="lg:sticky lg:top-28 lg:self-start">
+              <p className="font-mono text-xs text-muted-foreground">Setup guide</p>
+              <h2 className="mt-2 text-3xl font-medium tracking-[-0.01em] sm:text-4xl">From sign-up to your first answered visitor</h2>
+              <p className="mt-4 text-subtle">Eight steps, one of them optional. The same guide is in your dashboard and ticks steps off as you go.</p>
+              <div className="mt-6 flex gap-3">
+                <PrimaryCta size="lg" />
+              </div>
+            </div>
+            <ol data-setup-steps className="relative flex flex-col">
+              {/* Track and the brand-coloured fill GSAP grows as you scroll. */}
+              <span className="absolute top-4 bottom-4 left-[15px] w-px bg-border" aria-hidden="true" />
+              <span data-setup-line className="absolute top-4 bottom-4 left-[15px] w-px origin-top bg-brand" aria-hidden="true" />
+              {SETUP.map((s, i) => (
+                <li key={s.title} data-reveal className="relative flex gap-5 pb-10 last:pb-0">
+                  <span className="relative flex size-8 shrink-0 items-center justify-center rounded-full border bg-background font-mono text-xs text-subtle">
+                    {i + 1}
+                  </span>
+                  <div className="min-w-0 pt-1">
+                    <h3 className="flex flex-wrap items-center gap-2 font-medium">
+                      {s.title}
+                      {s.optional && <Badge variant="secondary" className="font-normal">Optional</Badge>}
+                    </h3>
+                    <p className="mt-1.5 max-w-xl text-sm text-subtle">{s.text}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </div>
+        </section>
+
+        <section className="border-t">
           <div data-reveal className="mx-auto flex max-w-6xl flex-col items-start gap-6 px-4 py-20 sm:px-6 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-3xl font-medium tracking-[-0.01em]">Set up your chatbot</h2>
