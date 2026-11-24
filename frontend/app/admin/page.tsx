@@ -78,7 +78,7 @@ function ClerkAdmin() {
   const token = useCallback(() => latest.current(), []);
 
   if (!isLoaded) return null;
-  if (!isSignedIn) return <main className="mt-[10vh] flex justify-center p-4"><SignIn routing="hash" /></main>;
+  if (!isSignedIn) return <main className="mt-[10vh] flex justify-center p-4"><SignIn routing="hash" forceRedirectUrl="/admin" signUpForceRedirectUrl="/admin" /></main>;
   // Switching organization switches tenant: remount so nothing from the previous one is left on screen.
   return <Dashboard key={orgId ?? userId} token={token} account={<ClerkNavUser />} />;
 }
