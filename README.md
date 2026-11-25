@@ -241,10 +241,9 @@ carries `handoff` with the knowledge base's channels. The widget shows **Talk to
 
 | Channel | How it works |
 |---|---|
-| Email | `mailto:` link with the question prefilled |
 | Contact form | Link to the URL you set |
 | WhatsApp | `wa.me` link with the question prefilled |
-| Leave a message | Ticket with the visitor's email (required). You reply in the Handoff tab, and with **Reply by email**. |
+| Get a reply by email | Ticket with the visitor's email (required). You reply in the Handoff tab; the reply is emailed to them. |
 | Chat with an agent | Same ticket thread, email optional. Your replies appear in the visitor's widget, which polls every 5 seconds while open. |
 
 Set the channels in the Handoff tab. With none set, no handoff is offered. The inbox refreshes every 5 seconds,
@@ -291,10 +290,11 @@ Public:
 
 | POST | `/api/tickets` | `{ knowledgeBaseId, message, email?, name?, live?, conversationId? }`. `email` is required unless `live`. Returns `{ id, live, status, messages[] }`. 403 when that channel is off. |
 | GET | `/api/tickets/:id` | `{ id, live, status, messages[] }`. The random ticket id is the visitor's only key. |
+| GET | `/api/widget/:slug` | `{ websites, appearance }`: the widget's allowed sites and Customize settings, read by `widget.js` and `frontend/proxy.ts`. CORS open. |
 | POST | `/api/tickets/:id/messages` | `{ message }`. 409 once the ticket is closed. |
 
 The chat response also has `handoff`: `null`, or `{ reason: "unanswered" | "requested", question, ...channels }`.
-CORS is open on `/api/chat` and `/api/tickets*` only.
+CORS is open on `/api/chat`, `/api/tickets*` and `/api/widget/:slug` only.
 
 Admin. Every call needs `Authorization: Bearer <Clerk session token>`, or `Bearer <ADMIN_TOKEN>` with an optional `X-Tenant-Id`.
 Every call only sees the caller's tenant. Ids from another tenant return 404.
@@ -302,7 +302,7 @@ Every call only sees the caller's tenant. Ids from another tenant return 404.
 | Method | Path | Body / query |
 |---|---|---|
 | GET, POST | `/api/admin/kbs` | POST `{ name, slug? }`. Without `slug`, one is made from the name plus a random suffix. Slugs are unique across all tenants (409 if taken). |
-| PATCH, DELETE | `/api/admin/kbs/:id` | PATCH `{ name?, handoff?, websites? }`. `handoff` is `{ email?, contactUrl?, whatsapp?, ticket?, live? }`. `websites` is a list of sites like `"shop.example.com"` (stored as origins, max 50). DELETE removes all of the knowledge base's content and stored files. |
+| PATCH, DELETE | `/api/admin/kbs/:id` | PATCH `{ name?, handoff?, websites?, appearance? }`. `appearance` replaces the Customize settings (see `backend/src/appearance.ts`). `handoff` is `{ email?, contactUrl?, whatsapp?, ticket?, live? }`. `websites` is a list of sites like `"shop.example.com"` (stored as origins, max 50). DELETE removes all of the knowledge base's content and stored files. |
 | GET | `/api/admin/kbs/:kb/categories` | |
 | GET, POST | `/api/admin/kbs/:kb/synonyms` | GET returns `{ custom: [{ id, terms }], builtin }`. POST `{ terms: string[] }` (2–30 terms) |
 | PATCH, DELETE | `/api/admin/synonyms/:id` | PATCH `{ terms }` |

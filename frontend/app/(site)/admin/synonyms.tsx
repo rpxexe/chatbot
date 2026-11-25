@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { ChevronRightIcon } from "lucide-react";
@@ -30,14 +31,14 @@ export function SynonymsPanel({ token, kbId, version, onChange, onError }: Props
 
   async function add(e: FormEvent) {
     e.preventDefault();
-    try { await api(token, `/kbs/${kbId}/synonyms`, "POST", { terms: splitKeywords(draft) }); setDraft(""); onChange(); } catch (err) { onError(err); }
+    try { await api(token, `/kbs/${kbId}/synonyms`, "POST", { terms: splitKeywords(draft) }); setDraft(""); toast.success("Synonyms added"); onChange(); } catch (err) { onError(err); }
   }
   async function save(g: Group) {
-    try { await api(token, `/synonyms/${g.id}`, "PATCH", { terms: splitKeywords(editText) }); setEditing(null); onChange(); } catch (err) { onError(err); }
+    try { await api(token, `/synonyms/${g.id}`, "PATCH", { terms: splitKeywords(editText) }); setEditing(null); toast.success("Synonyms saved"); onChange(); } catch (err) { onError(err); }
   }
   async function remove(g: Group) {
     if (!confirm(`Delete synonym group "${g.terms.join(", ")}"?`)) return;
-    try { await api(token, `/synonyms/${g.id}`, "DELETE"); onChange(); } catch (err) { onError(err); }
+    try { await api(token, `/synonyms/${g.id}`, "DELETE"); toast.success("Synonym group deleted"); onChange(); } catch (err) { onError(err); }
   }
 
   return (

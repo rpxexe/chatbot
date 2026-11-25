@@ -1,5 +1,5 @@
 // Human handoff: when the bot has no answer, or the visitor asks for a person, the chat response offers the knowledge
-// base's contact channels. Email, contact form and WhatsApp are links the client builds; "ticket" and "live" use the
+// base's contact channels. Contact form and WhatsApp are links the client builds (the email is only where team alerts go); "ticket" and "live" use the
 // built-in ticket thread (tickets + ticket_messages): the visitor writes, an agent replies from the admin dashboard.
 // In live mode the widget polls the thread while it is open; in ticket mode the visitor leaves an email for the reply.
 import { HttpError } from "./extract.js";
@@ -59,7 +59,8 @@ export function parseHandoff(v: unknown): HandoffSettings {
 
 /** The handoff to attach to a chat result, or null when the bot answered or the knowledge base has no channels. */
 export function offer(settings: HandoffSettings, r: ConversationResult, message: string): Handoff | null {
-  const hasChannel = !!(settings.email || settings.contactUrl || settings.whatsapp || settings.ticket || settings.live);
+  // The email is only where the team's alerts go (see mail.ts), not a button for visitors.
+  const hasChannel = !!(settings.contactUrl || settings.whatsapp || settings.ticket || settings.live);
   const requested = r.intent?.name === "human_agent";
   if (!hasChannel || (!requested && r.level !== "low")) return null;
   return { reason: requested ? "requested" : "unanswered", question: message, ...settings };

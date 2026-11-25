@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -12,11 +13,11 @@ export function CategoriesPanel({ token, categories, onChange, onError }: Props)
   async function rename(c: Category) {
     const name = prompt(`Rename "${c.name}" to:`, c.name)?.trim();
     if (!name || name === c.name) return;
-    try { await api(token, `/categories/${c.id}`, "PATCH", { name }); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/categories/${c.id}`, "PATCH", { name }); toast.success(`Renamed to “${name}”`); onChange(); } catch (e) { onError(e); }
   }
   async function remove(c: Category) {
     if (!confirm(`Delete category "${c.name}"? Its ${c.faq_count} FAQs and ${c.document_count} documents stay, uncategorised.`)) return;
-    try { await api(token, `/categories/${c.id}`, "DELETE"); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/categories/${c.id}`, "DELETE"); toast.success(`Category “${c.name}” deleted`); onChange(); } catch (e) { onError(e); }
   }
 
   if (categories.length === 0) return <p className="text-muted-foreground">No categories yet. Type a category name when adding a FAQ or document to create one.</p>;

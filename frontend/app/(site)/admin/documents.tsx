@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -29,7 +30,7 @@ export function DocumentsPanel({ token, kbId, categories, intents, version, onCh
   }
   async function remove(d: Doc) {
     if (!confirm(`Delete "${d.title}" and all its sections?`)) return;
-    try { await api(token, `/documents/${d.id}`, "DELETE"); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/documents/${d.id}`, "DELETE"); toast.success(`Deleted “${d.title}”`); onChange(); } catch (e) { onError(e); }
   }
   function recategorize(d: Doc) {
     const name = prompt(`Category for "${d.title}" (leave empty to clear):`, d.category ?? "");
@@ -82,12 +83,10 @@ function AddContent({ token, kbId, categories, onChange, onError }: Omit<Props, 
   const [text, setText] = useState("");
   const [category, setCategory] = useState("");
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState("");
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
-    setResult("");
     const cat = category.trim() || null;
     try {
       let r;
@@ -101,7 +100,7 @@ function AddContent({ token, kbId, categories, onChange, onError }: Omit<Props, 
       } else {
         r = await api(token, `/kbs/${kbId}/documents`, "POST", { title, text, category: cat });
       }
-      setResult(r.type === "faqs" ? `Imported ${r.count} FAQs.` : `Added “${r.title}” as ${r.sections} searchable section${r.sections === 1 ? "" : "s"}.`);
+      toast.success(r.type === "faqs" ? `Imported ${r.count} FAQs` : `Added “${r.title}”`, r.type === "faqs" ? undefined : { description: `${r.sections} searchable section${r.sections === 1 ? "" : "s"}` });
       setFile(null); setUrl(""); setTitle(""); setText("");
       (e.target as HTMLFormElement).reset();
       onChange();
@@ -142,7 +141,6 @@ function AddContent({ token, kbId, categories, onChange, onError }: Omit<Props, 
           <datalist id="doc-category-list">{categories.map((c) => <option key={c.id} value={c.name} />)}</datalist>
           <div className="flex flex-wrap items-center gap-2">
             <Button disabled={busy}>{busy ? "Processing" : "Add to knowledge base"}</Button>
-            {result && <span className="text-sm text-green-700 dark:text-green-400" role="status">{result}</span>}
           </div>
         </form>
       </CardContent>
@@ -159,11 +157,11 @@ function Sections({ token, docId, onChange, onError }: { token: Token; docId: nu
   }, [token, docId, rev, onError]);
 
   async function save(s: Section, heading: string, body: string) {
-    try { await api(token, `/sections/${s.id}`, "PATCH", { heading, body }); setRev((r) => r + 1); } catch (e) { onError(e); }
+    try { await api(token, `/sections/${s.id}`, "PATCH", { heading, body }); toast.success("Section saved"); setRev((r) => r + 1); } catch (e) { onError(e); }
   }
   async function remove(s: Section) {
     if (!confirm("Delete this section?")) return;
-    try { await api(token, `/sections/${s.id}`, "DELETE"); setRev((r) => r + 1); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/sections/${s.id}`, "DELETE"); toast.success("Section deleted"); setRev((r) => r + 1); onChange(); } catch (e) { onError(e); }
   }
 
   if (!sections) return <p className="text-muted-foreground">Loading…</p>;

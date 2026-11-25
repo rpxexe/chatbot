@@ -6,6 +6,7 @@ import { pool, tx, categoryId, insertDocument, insertFaq, insertDefaultIntents }
 import { chat, UUID } from "./context.js";
 import { EMAIL, offer, parseHandoff, REQUESTED_ANSWER, type HandoffSettings } from "./handoff.js";
 import { parseAppearance } from "./appearance.js";
+import { newTicketMail, replyMail, sendMail } from "./mail.js";
 import { logQuestion, markReviewed, report } from "./analytics.js";
 import { extract, extractFetched, markdownToSections, HttpError, type Extracted } from "./extract.js";
 import { fetchUrl } from "./fetch-url.js";
@@ -146,13 +147,13 @@ publicRouter.post("/chat", cors, async (req, res) => {
  */
 async function openKb(req: Request) {
   const slug = str(req.body?.knowledgeBaseId ?? req.body?.kb, "knowledgeBaseId", 50, false) ?? "default";
-  const { rows } = await pool.query("SELECT id, handoff, websites FROM knowledge_bases WHERE slug = $1", [slug]);
+  const { rows } = await pool.query("SELECT id, name, handoff, websites FROM knowledge_bases WHERE slug = $1", [slug]);
   if (!rows[0]) throw new HttpError(404, `knowledge base "${slug}" not found`);
   const origin = req.get("origin");
   if (rows[0].websites.length && origin && origin !== APP_ORIGIN && !rows[0].websites.includes(origin)) {
     throw new HttpError(403, "this website is not allowed to use this chatbot");
   }
-  return rows[0] as { id: number; handoff: HandoffSettings; websites: string[] };
+  return rows[0] as { id: number; name: string; handoff: HandoffSettings; websites: string[] };
 }
 
 // Widget settings. `websites`: who may frame the widget page (/widget); the frontend turns it into a frame-ancestors
@@ -170,7 +171,7 @@ function ticketId(req: Request) {
 }
 
 const messages = async (id: string) => (await pool.query(
-  `SELECT id::int, author, body, created_at AS "createdAt" FROM ticket_messages WHERE ticket_id = $1 ORDER BY id`, [id],
+  `SELECT id::int, author, body, channel, created_at AS "createdAt" FROM ticket_messages WHERE ticket_id = $1 ORDER BY id`, [id],
 )).rows;
 
 publicRouter.post("/tickets", cors, async (req, res) => {
@@ -192,6 +193,10 @@ publicRouter.post("/tickets", cors, async (req, res) => {
     return rows[0].id as string;
   });
   res.status(201).json({ id, live, status: "open", messages: await messages(id) });
+  // Tell the team. Reply-to is the visitor, so answering the email reaches them directly.
+  if (kb.handoff.email) {
+    void sendMail(newTicketMail({ to: kb.handoff.email, chatbot: kb.name, live, message, name, email, dashboardUrl: `${APP_ORIGIN}/admin#handoff` }));
+  }
 });
 
 publicRouter.get("/tickets/:id", cors, async (req, res) => {
@@ -666,14 +671,26 @@ adminRouter.post("/tickets/:id/messages", async (req, res) => {
   const id = ticketId(req);
   await kbOf("tickets", id, req);
   const body = str(req.body?.message, "message", 5000)!;
+  const { rows: [t] } = await pool.query(
+    `SELECT t.email, t.live, k.name, k.handoff->>'email' AS team,
+            (SELECT m.body FROM ticket_messages m WHERE m.ticket_id = t.id AND m.author = 'visitor' ORDER BY m.id LIMIT 1) AS question
+       FROM tickets t JOIN knowledge_bases k ON k.id = t.kb_id WHERE t.id = $1`, [id],
+  );
+  if (!t) throw new HttpError(404, "ticket not found");
+  // `email`: also send the reply by email. Default: yes for "Get a reply by email" tickets, no for live chats.
+  const email = req.body?.email === undefined ? !t.live && !!t.email && !!process.env.RESEND_API_KEY : req.body.email === true;
+  if (email && !t.email) throw bad("this visitor left no email address");
+  if (email && !process.env.RESEND_API_KEY) throw bad("email is not set up: add RESEND_API_KEY to the backend environment");
   // Replying reopens a closed ticket: the agent is continuing the conversation.
-  const { rowCount } = await pool.query(
+  const { rows: [m] } = await pool.query(
     `WITH t AS (UPDATE tickets SET updated_at = now(), status = 'open' WHERE id = $1 RETURNING id)
-     INSERT INTO ticket_messages (ticket_id, author, body) SELECT id, 'agent', $2 FROM t`,
+     INSERT INTO ticket_messages (ticket_id, author, body) SELECT id, 'agent', $2 FROM t RETURNING id`,
     [id, body],
   );
-  if (!rowCount) throw new HttpError(404, "ticket not found");
-  res.status(201).json({ messages: await messages(id) });
+  const emailed = email && await sendMail(replyMail({ to: t.email, ticketId: id, chatbot: t.name, reply: body, question: t.question, teamEmail: t.team }));
+  if (emailed) await pool.query("UPDATE ticket_messages SET channel = 'email' WHERE id = $1", [m.id]);
+  // emailFailed: saved in the thread, but the email didn't go out (the reason is in the server log).
+  res.status(201).json({ messages: await messages(id), emailed, emailFailed: email && !emailed });
 });
 
 adminRouter.patch("/tickets/:id", async (req, res) => {

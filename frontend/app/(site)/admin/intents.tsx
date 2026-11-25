@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ export function IntentsPanel({ token, kbId, intents, onChange, onError }: Props)
   async function remove(i: Intent) {
     const tagged = i.faq_count + i.document_count;
     if (!confirm(`Delete intent "${i.name}"?${tagged ? ` ${tagged} tagged FAQs/documents keep their content but lose the tag.` : ""}`)) return;
-    try { await api(token, `/intents/${i.id}`, "DELETE"); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/intents/${i.id}`, "DELETE"); toast.success(`Intent “${i.name}” deleted`); onChange(); } catch (e) { onError(e); }
   }
 
   return (
@@ -84,6 +85,7 @@ function IntentForm({ token, kbId, intent, onDone, onCancel, onError }: {
     try {
       if (intent) await api(token, `/intents/${intent.id}`, "PATCH", body);
       else await api(token, `/kbs/${kbId}/intents`, "POST", body);
+      toast.success(intent ? "Intent saved" : "Intent added");
       onDone();
     } catch (err) { onError(err); } finally { setBusy(false); }
   }
