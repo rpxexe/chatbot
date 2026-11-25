@@ -43,6 +43,8 @@ type Saved = { conversationId?: string; messages: Msg[]; thread: Thread | null }
 
 const POLL_MS = 5000;
 const MAX_STORED = 50;
+/** The chat bar's look, shared by every message box (dashboard Test panel, Handoff replies). Pair with aria-busy. */
+export const CHAT_INPUT = "chat-input relative overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[border-color,box-shadow] duration-300 dark:bg-card has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:shadow-[0_6px_20px_-8px_color-mix(in_oklch,var(--brand)_45%,transparent),0_1px_2px_rgb(0_0_0/0.05)]";
 const uid = () => crypto.randomUUID();
 const kb = () => new URLSearchParams(location.search).get("kb") ?? undefined;
 const bot = (text: string): Msg => ({ id: uid(), role: "bot", text, found: false, clarification: null, source: null, related: [], handoff: null });
@@ -63,7 +65,9 @@ async function json(res: Response) {
  * Scrolls inside its own box, so it works embedded (landing demo) and framed or full-page (/widget).
  * storageKey keeps the chat in sessionStorage, so the widget survives page loads on the customer's site.
  */
-export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay = false, sources = true, preview = false, className }: {
+export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay = false, sources = true, preview = false, chatbot, className }: {
+  /** The chatbot's slug. Default: the page's ?kb= (the widget), else the built-in "default" chatbot. */
+  chatbot?: string;
   empty?: ReactNode;
   greeting?: string;
   suggestions?: string[];
@@ -178,7 +182,7 @@ export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay =
       const data = await json(await fetch("/api/chat", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ message: text, kb: kb(), conversationId: conversationId.current, preview: preview || demoQuestion }),
+        body: JSON.stringify({ message: text, kb: chatbot ?? kb(), conversationId: conversationId.current, preview: preview || demoQuestion }),
       }));
       conversationId.current = data.conversationId;
       add({ id: uid(), role: "bot", text: data.answer, found: data.found, clarification: data.clarification, source: data.source, related: data.related ?? [], handoff: data.handoff });
@@ -351,6 +355,7 @@ export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay =
                     <MessageScrollerItem messageId="ticket-form" className="animate-in fade-in-0 slide-in-from-bottom-3 duration-300 motion-reduce:animate-none">
                       <TicketForm
                         {...form}
+                        chatbot={chatbot}
                         conversationId={conversationId.current}
                         onCancel={() => setForm(null)}
                         onOpened={(t, message, email, list) => {
@@ -394,7 +399,7 @@ export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay =
           */}
           <InputGroup
             aria-busy={busy}
-            className="chat-input relative overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[border-color,box-shadow] duration-300 dark:bg-card has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:shadow-[0_6px_20px_-8px_color-mix(in_oklch,var(--brand)_45%,transparent),0_1px_2px_rgb(0_0_0/0.05)]"
+            className={CHAT_INPUT}
           >
             {/* Loading: a faint sheen across the field too (only a strip moves). */}
             {busy && (
@@ -517,7 +522,6 @@ function CopyAction({ text }: { text: string }) {
 function HandoffOptions({ h, onTicket }: { h: NonNullable<Handoff>; onTicket: (q: string, live: boolean) => void }) {
   const [open, setOpen] = useState(h.reason === "requested");
   const links = [
-    h.email && { label: "Email us", href: `mailto:${h.email}?subject=${encodeURIComponent("Question from the website chat")}&body=${encodeURIComponent(h.question)}` },
     h.whatsapp && { label: "WhatsApp", href: `https://wa.me/${h.whatsapp}?text=${encodeURIComponent(h.question)}` },
     h.contactUrl && { label: "Contact form", href: h.contactUrl },
   ].filter(Boolean) as { label: string; href: string }[];
@@ -527,10 +531,10 @@ function HandoffOptions({ h, onTicket }: { h: NonNullable<Handoff>; onTicket: (q
   return (
     <div className="flex flex-wrap gap-2 pl-[18px]">
       {h.live && <Button type="button" variant="outline" size="sm" className={pill} onClick={() => onTicket(h.question, true)}>Chat with an agent</Button>}
-      {h.ticket && <Button type="button" variant="outline" size="sm" className={pill} onClick={() => onTicket(h.question, false)}>Leave a message</Button>}
+      {h.ticket && <Button type="button" variant="outline" size="sm" className={pill} onClick={() => onTicket(h.question, false)}>Get a reply by email</Button>}
       {links.map((l) => (
         <Button key={l.label} variant="outline" size="sm" className={pill} asChild>
-          <a href={l.href} {...(l.href.startsWith("mailto:") ? {} : { target: "_blank", rel: "noopener" })}>{l.label}</a>
+          <a href={l.href} target="_blank" rel="noopener">{l.label}</a>
         </Button>
       ))}
     </div>
@@ -540,8 +544,9 @@ function HandoffOptions({ h, onTicket }: { h: NonNullable<Handoff>; onTicket: (q
 type TicketMsgs = { id: number; author: string; body: string }[];
 
 /** Opens a ticket thread. Live: an agent answers in this window. Otherwise: the team replies by email. */
-function TicketForm({ question, live, conversationId, onCancel, onOpened }: {
+function TicketForm({ question, live, chatbot, conversationId, onCancel, onOpened }: {
   question: string;
+  chatbot?: string;
   live: boolean;
   conversationId?: string;
   onCancel: () => void;
@@ -561,7 +566,7 @@ function TicketForm({ question, live, conversationId, onCancel, onOpened }: {
       const data = await json(await fetch("/api/tickets", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kb: kb(), conversationId, live, message, email, name }),
+        body: JSON.stringify({ kb: chatbot ?? kb(), conversationId, live, message, email, name }),
       }));
       onOpened({ id: data.id, live, lastId: 0 }, message.trim(), email.trim(), data.messages);
     } catch (err) {
@@ -571,8 +576,8 @@ function TicketForm({ question, live, conversationId, onCancel, onOpened }: {
   }
 
   return (
-    <form onSubmit={submit} aria-label={live ? "Chat with an agent" : "Leave a message"} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
-      <p className="text-sm text-subtle">{live ? "An agent will reply here. Leave your email in case you can’t wait." : "Our team will reply by email."}</p>
+    <form onSubmit={submit} aria-label={live ? "Chat with an agent" : "Get a reply by email"} className="flex flex-col gap-3 rounded-xl border bg-card p-4">
+      <p className="text-sm text-subtle">{live ? "An agent will reply here. Leave your email in case you can’t wait." : "Send us your question. Our team will email you the answer."}</p>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="t-msg">Your message</Label>
         <Textarea id="t-msg" rows={3} maxLength={2000} required value={message} onChange={(e) => setMessage(e.target.value)} autoFocus />

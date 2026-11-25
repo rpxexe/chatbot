@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Show, SignInButton, SignOutButton, SignUpButton } from "@clerk/nextjs";
 import gsap from "gsap";
@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Appearance } from "@/lib/appearance";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -173,22 +175,7 @@ export function Landing() {
           </div>
 
           <Card id="demo" data-demo className="h-[30rem] gap-0 lg:h-[min(34rem,calc(100svh-6rem))] lg:min-h-[24rem] overflow-hidden py-0 shadow-sm">
-            <div className="flex items-center gap-2 border-b px-4 py-3">
-              <span className="size-2 rounded-full bg-brand" aria-hidden="true" />
-              <span className="text-sm font-medium">Live demo</span>
-              <span className="text-sm text-muted-foreground">Ask about refunds, shipping or accounts</span>
-            </div>
-            <Chat
-              className="flex-1"
-              autoplay
-              empty={
-                <div>
-                  <h2 className="text-xl font-medium">What do you need to know?</h2>
-                  <p className="mt-2 text-sm text-subtle">This demo answers from a sample store's help articles.</p>
-                </div>
-              }
-              suggestions={["What is your refund policy?", "Do you ship internationally?", "How do I reset my password?"]}
-            />
+            <Demo />
           </Card>
         </section>
 
@@ -334,6 +321,70 @@ function PrimaryCta({ size, variant = "default" }: { size: "sm" | "lg"; variant?
         </SignUpButton>
       </Show>
       <Show when="signed-in">{dashboard}</Show>
+    </>
+  );
+}
+
+// Which chatbot the demo talks to (its slug, from the dashboard's chatbot switcher). Unset: the built-in sample store.
+const DEMO_KB = process.env.NEXT_PUBLIC_DEMO_KB || "";
+const SAMPLE: Demo = {
+  subtitle: "Ask about refunds, shipping or accounts",
+  intro: "This demo answers from a sample store's help articles.",
+  suggestions: ["What is your refund policy?", "Do you ship internationally?", "How do I reset my password?"],
+  sources: true,
+};
+type Demo = { subtitle: string; intro: string; suggestions: string[]; sources: boolean };
+
+/** From the chatbot's Customize settings: its name, greeting and starter questions. */
+function fromAppearance(a: Appearance): Demo {
+  const name = a.title?.trim();
+  return {
+    subtitle: name ? `Ask ${name} anything` : "Ask anything about our help articles",
+    intro: a.greeting?.trim() || "Ask a question in your own words. Answers come from our help articles.",
+    suggestions: a.suggestions ?? [],
+    sources: a.sources !== false,
+  };
+}
+
+/** The live demo card's chat. Waits for the chatbot's settings, because autoplay reads the suggestions once. */
+function Demo() {
+  const [demo, setDemo] = useState<Demo | null>(DEMO_KB ? null : SAMPLE);
+  useEffect(() => {
+    if (!DEMO_KB) return;
+    fetch(`/api/widget/${encodeURIComponent(DEMO_KB)}`)
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((d: { appearance?: Appearance }) => setDemo(fromAppearance(d.appearance ?? {})))
+      .catch(() => setDemo(fromAppearance({})));
+  }, []);
+
+  return (
+    <>
+      <div className="flex items-center gap-2 border-b px-4 py-3">
+        <span className="size-2 rounded-full bg-brand" aria-hidden="true" />
+        <span className="text-sm font-medium">Live demo</span>
+        {demo ? <span className="truncate text-sm text-muted-foreground">{demo.subtitle}</span> : <Skeleton className="h-3.5 w-48" />}
+      </div>
+      {demo ? (
+        <Chat
+          className="flex-1"
+          chatbot={DEMO_KB || undefined}
+          autoplay
+          sources={demo.sources}
+          empty={
+            <div>
+              <h2 className="text-xl font-medium">What do you need to know?</h2>
+              <p className="mt-2 text-sm text-subtle">{demo.intro}</p>
+            </div>
+          }
+          suggestions={demo.suggestions}
+        />
+      ) : (
+        <div className="flex flex-1 flex-col gap-3 p-6" aria-busy="true" aria-label="Loading the demo">
+          <Skeleton className="h-6 w-56" />
+          <Skeleton className="h-4 w-72 max-w-full" />
+          <div className="mt-auto flex flex-col gap-2"><Skeleton className="h-8 w-60" /><Skeleton className="h-8 w-52" /><Skeleton className="h-10 w-full rounded-xl" /></div>
+        </div>
+      )}
     </>
   );
 }

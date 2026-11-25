@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -38,7 +39,7 @@ export function AnalyticsPanel({ token, kbId, categories, intents, version, onCh
   useEffect(load, [load, version]);
 
   async function review(key: string) {
-    try { await api(token, `/kbs/${kbId}/analytics/reviewed`, "POST", { key }); load(); } catch (e) { onError(e); }
+    try { await api(token, `/kbs/${kbId}/analytics/reviewed`, "POST", { key }); toast.success("Dismissed"); load(); } catch (e) { onError(e); }
   }
 
   if (!report) return <p className="text-muted-foreground">Loading</p>;

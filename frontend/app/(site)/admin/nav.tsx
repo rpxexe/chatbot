@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useState, type FormEvent, type ReactNode } from "react";
 import { useClerk, useOrganization, useOrganizationList, useUser } from "@clerk/nextjs";
@@ -30,12 +31,12 @@ export function ChatbotSwitcher({ token, kbs, kb, onSelect, onChange, onError }:
     e.preventDefault();
     try {
       const { id } = await api(token, "/kbs", "POST", { name });
-      setName(""); setCreating(false); onSelect(id); onChange();
+      setName(""); setCreating(false); onSelect(id); onChange(); toast.success(`Created “${name}”`);
     } catch (err) { onError(err); }
   }
   async function remove() {
     if (!kb || !confirm(`Delete the chatbot "${kb.name}" with ALL its FAQs, documents, categories, intents, synonyms and conversations? This cannot be undone.`)) return;
-    try { await api(token, `/kbs/${kb.id}`, "DELETE"); onChange(); } catch (err) { onError(err); }
+    try { await api(token, `/kbs/${kb.id}`, "DELETE"); toast.success(`Deleted “${kb.name}”`); onChange(); } catch (err) { onError(err); }
   }
 
   return (

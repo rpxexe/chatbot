@@ -233,4 +233,10 @@ ALTER TABLE documents ADD COLUMN file_key TEXT;
   /* sql */ `
 ALTER TABLE knowledge_bases ADD COLUMN appearance JSONB NOT NULL DEFAULT '{}';
 `,
+
+  // 11: Email in handoff threads (see inbound.ts, mail.ts). 'email': a visitor's message that arrived as an email reply,
+  // or an agent's reply that was also emailed to the visitor. 'chat': written in the widget or dashboard only.
+  /* sql */ `
+ALTER TABLE ticket_messages ADD COLUMN channel TEXT NOT NULL DEFAULT 'chat' CHECK (channel IN ('chat', 'email'));
+`,
 ];

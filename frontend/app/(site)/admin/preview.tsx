@@ -9,6 +9,7 @@ import { InputGroup, InputGroupAddon, InputGroupButton, InputGroupInput } from "
 import { Progress } from "@/components/ui/progress";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { CHAT_INPUT } from "@/components/chat";
 import type { Kb } from "./api";
 
 type Signals = { bm25: number; keyword: number; phrase: number; question: number; fuzzy: number };
@@ -106,7 +107,7 @@ export function PreviewPanel({ kb }: { kb: Kb }) {
       </div>
       <form onSubmit={(e: FormEvent) => { e.preventDefault(); ask(q); }}>
         <Label htmlFor="preview-q" className="sr-only">Test question</Label>
-        <InputGroup className="h-10 bg-card dark:bg-card">
+        <InputGroup aria-busy={busy} className={cn(CHAT_INPUT, "h-10")}>
           <InputGroupInput id="preview-q" value={q} onChange={(e) => setQ(e.target.value)} maxLength={500} placeholder="Ask like a visitor would" />
           <InputGroupAddon align="inline-end">
             <InputGroupButton type="submit" variant="default" size="icon-xs" className="aria-disabled:opacity-40" aria-label="Ask" aria-disabled={busy || !q.trim()}>
@@ -141,7 +142,7 @@ export function PreviewPanel({ kb }: { kb: Kb }) {
                 <dt className="text-muted-foreground">Handoff</dt>
                 <dd className="text-subtle">
                   {result.handoff.reason === "requested" ? "Visitor asked for a person" : "Offered, no answer"}:{" "}
-                  {[result.handoff.email && "email", result.handoff.contactUrl && "contact form", result.handoff.whatsapp && "WhatsApp",
+                  {[result.handoff.contactUrl && "contact form", result.handoff.whatsapp && "WhatsApp",
                     result.handoff.ticket && "leave a message", result.handoff.live && "live agent"].filter(Boolean).join(", ")}
                 </dd>
               </>

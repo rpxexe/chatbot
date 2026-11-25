@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import {
@@ -38,8 +39,7 @@ export function CustomizePanel({ token, kb, onChange, onError }: Props) {
   const [a, setA] = useState<Appearance>(kb.appearance ?? {});
   const [starters, setStarters] = useState((kb.appearance?.suggestions ?? []).join("\n"));
   const [busy, setBusy] = useState(false);
-  const [status, setStatus] = useState("");
-  const set = (patch: Partial<Appearance>) => { setA((cur) => ({ ...cur, ...patch })); setStatus(""); };
+  const set = (patch: Partial<Appearance>) => { setA((cur) => ({ ...cur, ...patch })); };
   // Capped to what the backend accepts (4 lines, 120 characters each), so the preview never shows what Save would refuse.
   const draft: Appearance = { ...a, suggestions: starters.split("\n").map((s) => s.trim().slice(0, 120)).filter(Boolean).slice(0, 4) };
   const customized = Object.values(draft).some((v) => (Array.isArray(v) ? v.length > 0 : v !== undefined && v !== ""));
@@ -49,7 +49,7 @@ export function CustomizePanel({ token, kb, onChange, onError }: Props) {
     setBusy(true);
     try {
       await api(token, `/kbs/${kb.id}`, "PATCH", { appearance: draft });
-      setStatus("Saved. Live on your website on the next page load.");
+      toast.success("Appearance saved", { description: "Live on your website on the next page load." });
       onChange();
     } catch (err) { onError(err); } finally { setBusy(false); }
   }
@@ -58,7 +58,7 @@ export function CustomizePanel({ token, kb, onChange, onError }: Props) {
   function reset() {
     setA({});
     setStarters("");
-    setStatus("Back to defaults. Save to apply.");
+    toast("Back to defaults", { description: "Save to apply." });
   }
 
   return (
@@ -144,7 +144,7 @@ export function CustomizePanel({ token, kb, onChange, onError }: Props) {
                   <Textarea id="c-greeting" rows={2} maxLength={300} placeholder="Ask a question in your own words. My answers come from our help articles." value={a.greeting ?? ""} onChange={(e) => set({ greeting: e.target.value })} />
                 </Field>
                 <Field label="Starter questions" htmlFor="c-starters" hint="Up to 4, one per line. Shown under the greeting as buttons">
-                  <Textarea id="c-starters" rows={4} value={starters} onChange={(e) => { setStarters(e.target.value); setStatus(""); }} placeholder={"Where is my order?\nWhat is your refund policy?"} />
+                  <Textarea id="c-starters" rows={4} value={starters} onChange={(e) => setStarters(e.target.value)} placeholder={"Where is my order?\nWhat is your refund policy?"} />
                 </Field>
               </TabsContent>
             </Tabs>
@@ -154,7 +154,6 @@ export function CustomizePanel({ token, kb, onChange, onError }: Props) {
               <Button type="button" variant="outline" onClick={reset} disabled={!customized}>
                 <RotateCcw data-icon="inline-start" aria-hidden="true" />Reset all
               </Button>
-              {status && <span className="text-sm text-muted-foreground" role="status">{status}</span>}
             </div>
           </form>
         </CardContent>

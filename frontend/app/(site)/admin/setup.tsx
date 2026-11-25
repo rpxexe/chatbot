@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CircleCheck } from "lucide-react";
+import { ArrowRight, CircleCheck, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,7 +16,7 @@ type Step = {
   /** Known from the chatbot's data; undefined when it can't be told from here. */
   done?: boolean;
   optional?: boolean;
-  actions: { label: string; to?: Go; test?: boolean }[];
+  actions: { label: string; to?: Go; test?: boolean; href?: string }[];
 };
 
 /** How to set a chatbot up, in order. Steps tick themselves off where the data shows they're done. */
@@ -42,9 +42,9 @@ export function SetupGuide({ kb, onGo, onTest }: { kb: Kb; onGo: (tab: Go) => vo
     },
     {
       title: "Choose how visitors reach a person",
-      body: "When the chatbot can’t answer, or a visitor asks for a person, it offers the channels you set: email, a contact form, WhatsApp, a message to your team, or a live chat you answer from Handoff.",
+      body: "When the chatbot can’t answer, or a visitor asks for a person, it offers the channels you set: a live chat or an email reply you answer from Handoff, a contact form, or WhatsApp. To try it, open your chat, type “talk to a person” and pick Chat with an agent or Get a reply by email: the conversation appears in Handoff, where you reply. The Test panel only lists the channels.",
       done: !!(h.email || h.contactUrl || h.whatsapp || h.ticket || h.live),
-      actions: [{ label: "Set up handoff", to: "handoff" }],
+      actions: [{ label: "Set up handoff", to: "handoff" }, { label: "Open your chat", href: `/widget?kb=${encodeURIComponent(kb.slug)}` }],
     },
     {
       title: "Put it on your website",
@@ -79,7 +79,11 @@ export function SetupGuide({ kb, onGo, onTest }: { kb: Kb; onGo: (tab: Go) => vo
               </h2>
               <p className="mt-1 text-sm text-subtle">{s.body}</p>
               <div className="mt-3 flex flex-wrap gap-2">
-                {s.actions.map((a) => (
+                {s.actions.map((a) => a.href ? (
+                  <Button key={a.label} variant="outline" size="sm" asChild>
+                    <a href={a.href} target="_blank" rel="noreferrer">{a.label}<ExternalLink className="size-3.5" strokeWidth={1.75} aria-hidden="true" /></a>
+                  </Button>
+                ) : (
                   <Button key={a.label} variant="outline" size="sm" onClick={() => (a.test ? onTest() : onGo(a.to!))}>
                     {a.label}<ArrowRight className="size-3.5" strokeWidth={1.75} aria-hidden="true" />
                   </Button>

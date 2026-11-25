@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useEffect, useState, type FormEvent } from "react";
 import { Check, Copy } from "lucide-react";
@@ -16,7 +17,6 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
   const [origin, setOrigin] = useState("");
   const [sites, setSites] = useState(kb.websites.join("\n"));
   const [busy, setBusy] = useState(false);
-  const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
   useEffect(() => setOrigin(window.location.origin), []);
   useEffect(() => {
@@ -32,7 +32,7 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
     setBusy(true);
     try {
       await api(token, `/kbs/${kb.id}`, "PATCH", { websites: sites.split(/[\s,]+/).filter(Boolean) });
-      setSaved(true);
+      toast.success("Websites saved");
       onChange();
     } catch (err) { onError(err); } finally { setBusy(false); }
   }
@@ -49,7 +49,7 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
               variant="outline"
               size="sm"
               className="absolute top-2 right-2 bg-card"
-              onClick={() => navigator.clipboard.writeText(snippet).then(() => setCopied(true), onError)}
+              onClick={() => navigator.clipboard.writeText(snippet).then(() => { setCopied(true); toast.success("Embed code copied"); }, onError)}
             >
               {copied ? <Check data-icon="inline-start" aria-hidden="true" /> : <Copy data-icon="inline-start" aria-hidden="true" />}
               {copied ? "Copied" : "Copy"}
@@ -68,10 +68,9 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
               </p>
             </div>
             <Label htmlFor="websites">One per line <Hint>(e.g. shop.example.com)</Hint></Label>
-            <Textarea id="websites" rows={4} value={sites} onChange={(e) => { setSites(e.target.value); setSaved(false); }} placeholder={"example.com\nwww.example.com"} />
+            <Textarea id="websites" rows={4} value={sites} onChange={(e) => setSites(e.target.value)} placeholder={"example.com\nwww.example.com"} />
             <div className="flex items-center gap-3">
               <Button disabled={busy}>Save</Button>
-              {saved && <span className="text-sm text-muted-foreground" role="status">Saved.</span>}
             </div>
           </form>
         </CardContent>

@@ -1,4 +1,5 @@
 "use client";
+import { toast } from "sonner";
 
 import { useEffect, useId, useState, type FormEvent } from "react";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,7 @@ export function FaqsPanel({ token, kbId, categories, intents, version, onChange,
   }
   async function remove(f: Faq) {
     if (!confirm(`Delete FAQ "${f.question}"?`)) return;
-    try { await api(token, `/faqs/${f.id}`, "DELETE"); onChange(); } catch (e) { onError(e); }
+    try { await api(token, `/faqs/${f.id}`, "DELETE"); toast.success("FAQ deleted"); onChange(); } catch (e) { onError(e); }
   }
 
   return (
@@ -121,6 +122,7 @@ export function FaqForm({ token, kbId, categories, intents, faq, initialQuestion
     try {
       if (faq) await api(token, `/faqs/${faq.id}`, "PATCH", body);
       else await api(token, `/kbs/${kbId}/faqs`, "POST", body);
+      toast.success(faq ? "FAQ saved" : "FAQ added");
       onDone();
     } catch (err) { onError(err); } finally { setBusy(false); }
   }
