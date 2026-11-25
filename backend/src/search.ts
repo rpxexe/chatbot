@@ -74,7 +74,8 @@ export type ChatResult = {
   results: Result[];
 };
 
-type Loaded = { version: string; index: SearchIndex; intents: IntentMatcher; entities: EntityExtractor };
+// faqs: the enabled FAQs, in order, to fill follow-up suggestions from the answer's category.
+type Loaded = { version: string; index: SearchIndex; intents: IntentMatcher; entities: EntityExtractor; faqs: Entry[] };
 
 // shortcut: whole knowledge base held in memory per API process, rebuilt on any content change; fine to ~50k sections, beyond that prefilter candidates in Postgres first.
 const cache = new Map<number, Loaded>();
@@ -114,6 +115,7 @@ async function load(kbId: number): Promise<Loaded> {
   const loaded = {
     version: kb.content_version,
     index: new SearchIndex(entries, [...DEFAULT_SYNONYMS, ...synonyms.rows.map((r) => r.terms)]),
+    faqs: entries.filter((e) => e.type === "faq"),
     intents: new IntentMatcher(intents.rows),
     entities: new EntityExtractor(categories.rows.map((r) => r.name)),
   };
@@ -125,7 +127,7 @@ const round = (n: number) => Math.round(n * 1000) / 1000;
 const publicIntent = ({ response, ...m }: IntentMatch) => m;
 
 export async function answer(message: string, kbId: number): Promise<ChatResult> {
-  const { index, intents, entities } = await load(kbId);
+  const { index, intents, entities, faqs } = await load(kbId);
 
   const detected = intents.detect(message);
   const intent = detected[0] && detected[0].confidence >= INTENT_MIN ? detected[0] : null;
@@ -195,6 +197,18 @@ export async function answer(message: string, kbId: number): Promise<ChatResult>
   const e = top.entry;
   const matchedTitle = e.type === "faq" ? e.title : e.title ? `${e.context} › ${e.title}` : e.context;
   const others = related(true);
+  // A confident answer whose topic has no similarly worded FAQ would offer nothing to ask next: fill the follow-ups up
+  // to 3 from the answer's category, in the order the FAQs were added. Low-confidence answers keep only real
+  // look-alikes, since those are shown as "Did you mean".
+  if (level === "high" && e.category && others.length < 3) {
+    const taken = new Set([e.title.trim().toLowerCase(), ...others.map((o) => o.question.trim().toLowerCase())]);
+    for (const f of faqs) {
+      if (others.length >= 3) break;
+      if (f.category !== e.category || taken.has(f.title.trim().toLowerCase())) continue;
+      taken.add(f.title.trim().toLowerCase());
+      others.push({ id: f.id, question: f.title });
+    }
+  }
   return {
     ...base,
     found: true,
