@@ -165,7 +165,33 @@
   90% { stroke-dashoffset: 0; fill-opacity: 0; }
   100% { stroke-dashoffset: -1; fill-opacity: 0; }
 }
-/* Chat input while a reply loads (components/chat.tsx): a strip 2/5 of the bar wide sweeps from off one end to off the other. */
+/*
+ * Chat input (components/chat.tsx). Both effects paint the 1px border only: the field color fills the padding box and
+ * the gradient shows through the transparent border. No masks, so the inside can never be covered.
+ */
+.chat-input:has([data-slot=input-group-control]:focus-visible) {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(120deg, var(--brand), color-mix(in oklch, var(--brand) 30%, var(--card)) 45%, color-mix(in oklch, var(--brand) 30%, var(--card)) 60%, var(--brand)) border-box;
+}
+/* Loading: a brand-colored light runs along the border, left to right. */
+.chat-input[aria-busy="true"] {
+  border-color: transparent;
+  background:
+    linear-gradient(var(--card), var(--card)) padding-box,
+    linear-gradient(90deg, var(--border) 40%, var(--brand) 50%, var(--border) 60%) border-box;
+  background-size: 100% 100%, 300% 100%;
+  animation: input-border 1.6s linear infinite;
+}
+@keyframes input-border {
+  from { background-position: 0 0, 100% 0; }
+  to { background-position: 0 0, 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .chat-input[aria-busy="true"] { animation: none; background: var(--card); border-color: color-mix(in oklch, var(--brand) 50%, transparent); }
+}
+/* The faint sheen across the field while loading: a strip 2/5 of the bar wide, from off one end to off the other. */
 @keyframes input-shimmer {
   from { transform: translateX(-100%); }
   to { transform: translateX(250%); }
