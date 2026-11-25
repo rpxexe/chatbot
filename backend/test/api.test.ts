@@ -83,6 +83,14 @@ test("confidence bands: answer, answer + clarification, fallback", async () => {
   assert.ok(low.confidence < 0.5);
 });
 
+test("a confident answer with no look-alike FAQ still offers follow-ups from its category", async () => {
+  const r = await chat("What is your refund policy?");
+  assert.equal(r.level, "high");
+  const asked = r.related.map((q: { question: string }) => q.question);
+  assert.ok(asked.includes("Which payment methods do you accept?") && asked.includes("How do I cancel my subscription?"), JSON.stringify(asked));
+  assert.ok(!asked.includes("What is your refund policy?") && asked.length <= 3);
+});
+
 test("a duplicated FAQ question is no rival and never offered as 'Did you mean' itself", async () => {
   // Words no other test uses: this KB is shared by the whole file.
   const faq = { question: "Do you sell telescope lenses?", answer: "Yes, in the astronomy aisle." };
