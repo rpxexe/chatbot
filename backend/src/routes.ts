@@ -133,8 +133,9 @@ publicRouter.post("/chat", cors, async (req, res) => {
   // The admin preview sends preview: true so the owner's own test questions don't skew analytics.
   if (req.body?.preview !== true) await logQuestion(kb.id, message, result);
   const handoff = offer(kb.handoff, result, message);
-  // Asked for a person and nothing in the knowledge base answers it: say so instead of "couldn't find an answer".
-  const answer = handoff?.reason === "requested" && !result.found ? REQUESTED_ANSWER : result.answer;
+  // Asked for a person: point to the team's options, unless the question also had a strong answer ("talk to a person
+  // about refunds"). A weaker match is usually just the word "person" hitting an unrelated article.
+  const answer = handoff?.reason === "requested" && result.level !== "high" ? REQUESTED_ANSWER : result.answer;
   res.json({ ...result, answer, handoff });
 });
 
