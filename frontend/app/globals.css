@@ -3,8 +3,13 @@
 @import "shadcn/tailwind.css";
 @import "lenis/dist/lenis.css";
 
-/* Follow the OS theme, as the app did before shadcn. */
-@custom-variant dark (@media (prefers-color-scheme: dark));
+/* Follow the OS theme, as the app did before shadcn, unless a [data-theme] wrapper forces one (the widget). */
+@custom-variant dark {
+  &:where([data-theme=dark], [data-theme=dark] *) { @slot; }
+  @media (prefers-color-scheme: dark) {
+    &:where(:not([data-theme=light], [data-theme=light] *)) { @slot; }
+  }
+}
 
 @theme inline {
     --font-heading: var(--font-sans);
@@ -55,85 +60,52 @@
     --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-:root {
+/* Also on [data-theme]: the build polyfills light-dark() with variables that resolve where a token is declared, so a
+   forced-theme wrapper has to declare the tokens again to get its own scheme's values. */
+:root, [data-theme] {
     /* Graphite ramp for every surface; bookbinding green is the one accent ("answered from your content"). */
-    --background: #fafafa;
-    --foreground: #171717;
-    --subtle: #525252;
-    --card: #ffffff;
-    --card-foreground: #171717;
-    --popover: #ffffff;
-    --popover-foreground: #171717;
-    --primary: #171717;
-    --primary-foreground: #fafafa;
-    --secondary: #f4f4f5;
-    --secondary-foreground: #171717;
-    --muted: #f4f4f5;
-    --muted-foreground: #737373;
-    --accent: #f0f0f1;
-    --accent-foreground: #171717;
-    --destructive: #dc2626;
-    --border: #e8e8e9;
-    --input: #e2e2e4;
-    --ring: #1f6b4a;
-    --brand: #1f6b4a;
-    --brand-foreground: #ffffff;
-    --brand-soft: rgb(31 107 74 / 0.08);
-    --chart-1: #1f6b4a;
-    --chart-2: #a3a3a3;
-    --chart-3: #d4d4d4;
-    --chart-4: #737373;
-    --chart-5: #525252;
+    /* One palette per token: light-dark() follows color-scheme, so [data-theme] can force either (the widget). */
+    color-scheme: light dark;
+    --background: light-dark(#fafafa, #141415);
+    --foreground: light-dark(#171717, #ededed);
+    --subtle: light-dark(#525252, #a1a1a6);
+    --card: light-dark(#ffffff, #19191b);
+    --card-foreground: light-dark(#171717, #ededed);
+    --popover: light-dark(#ffffff, #1c1c1e);
+    --popover-foreground: light-dark(#171717, #ededed);
+    --primary: light-dark(#171717, #ededed);
+    --primary-foreground: light-dark(#fafafa, #141415);
+    --secondary: light-dark(#f4f4f5, #232325);
+    --secondary-foreground: light-dark(#171717, #ededed);
+    --muted: light-dark(#f4f4f5, #232325);
+    --muted-foreground: light-dark(#737373, #85858b);
+    --accent: light-dark(#f0f0f1, #232325);
+    --accent-foreground: light-dark(#171717, #ededed);
+    --destructive: light-dark(#dc2626, #e5484d);
+    --border: light-dark(#e8e8e9, #262628);
+    --input: light-dark(#e2e2e4, #2e2e31);
+    --ring: light-dark(#1f6b4a, #5cc196);
+    --brand: light-dark(#1f6b4a, #5cc196);
+    --brand-foreground: light-dark(#ffffff, #0f0f10);
+    --brand-soft: light-dark(rgb(31 107 74 / 0.08), rgb(92 193 150 / 0.1));
+    --chart-1: light-dark(#1f6b4a, #5cc196);
+    --chart-2: light-dark(#a3a3a3, #6b6b70);
+    --chart-3: light-dark(#d4d4d4, #3a3a3d);
+    --chart-4: light-dark(#737373, #85858b);
+    --chart-5: light-dark(#525252, #a1a1a6);
     --radius: 0.625rem;
-    --sidebar: #f4f4f5;
-    --sidebar-foreground: #171717;
-    --sidebar-primary: #171717;
-    --sidebar-primary-foreground: #fafafa;
-    --sidebar-accent: #e9e9eb;
-    --sidebar-accent-foreground: #171717;
-    --sidebar-border: #e4e4e6;
-    --sidebar-ring: #1f6b4a;
+    --sidebar: light-dark(#f4f4f5, #0f0f10);
+    --sidebar-foreground: light-dark(#171717, #ededed);
+    --sidebar-primary: light-dark(#171717, #ededed);
+    --sidebar-primary-foreground: light-dark(#fafafa, #141415);
+    --sidebar-accent: light-dark(#e9e9eb, #1d1d1f);
+    --sidebar-accent-foreground: light-dark(#171717, #ededed);
+    --sidebar-border: light-dark(#e4e4e6, #232325);
+    --sidebar-ring: light-dark(#1f6b4a, #5cc196);
 }
+[data-theme=light] { color-scheme: light; }
+[data-theme=dark] { color-scheme: dark; }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #141415;
-    --foreground: #ededed;
-    --subtle: #a1a1a6;
-    --card: #19191b;
-    --card-foreground: #ededed;
-    --popover: #1c1c1e;
-    --popover-foreground: #ededed;
-    --primary: #ededed;
-    --primary-foreground: #141415;
-    --secondary: #232325;
-    --secondary-foreground: #ededed;
-    --muted: #232325;
-    --muted-foreground: #85858b;
-    --accent: #232325;
-    --accent-foreground: #ededed;
-    --destructive: #e5484d;
-    --border: #262628;
-    --input: #2e2e31;
-    --ring: #5cc196;
-    --brand: #5cc196;
-    --brand-foreground: #0f0f10;
-    --brand-soft: rgb(92 193 150 / 0.1);
-    --chart-1: #5cc196;
-    --chart-2: #6b6b70;
-    --chart-3: #3a3a3d;
-    --chart-4: #85858b;
-    --chart-5: #a1a1a6;
-    --sidebar: #0f0f10;
-    --sidebar-foreground: #ededed;
-    --sidebar-primary: #ededed;
-    --sidebar-primary-foreground: #141415;
-    --sidebar-accent: #1d1d1f;
-    --sidebar-accent-foreground: #ededed;
-    --sidebar-border: #232325;
-    --sidebar-ring: #5cc196;
-  }
-}
 
 @layer base {
   * {
@@ -148,6 +120,66 @@
   html {
     @apply font-sans;
     }
+  /* Scrollbars like shadcn's Scroll Area: thin rounded thumb, no track, on every scrolling box (landing, dashboard, widget). */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+    }
+  ::-webkit-scrollbar-track, ::-webkit-scrollbar-corner {
+    background: transparent;
+    }
+  ::-webkit-scrollbar-thumb {
+    /* 10px gutter minus 2px each side: a 6px pill inset from the edge, like Scroll Area's thumb. */
+    border: 2px solid transparent;
+    border-radius: 9999px;
+    background: color-mix(in oklch, var(--foreground) 22%, transparent) padding-box;
+    }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--foreground) 32%, transparent);
+    }
+  /* Firefox has no ::-webkit-scrollbar. Only here: in Chromium these would switch off the rules above. */
+  @supports (-moz-appearance: none) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: color-mix(in oklch, var(--foreground) 22%, transparent) transparent;
+      }
+  }
+}
+/*
+ * Logo (components/logo.tsx), looping every 5s: outlines trace in, the shape fills, holds, fill fades, outlines erase.
+ * It repaints only the small logo, and never with reduced motion.
+ */
+.logo-draw {
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  stroke-dasharray: 1 1;
+  stroke-dashoffset: 1;
+  fill-opacity: 0;
+  animation: logo-draw 5s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes logo-draw {
+  0% { stroke-dashoffset: 1; fill-opacity: 0; }
+  35% { stroke-dashoffset: 0; fill-opacity: 0; }
+  50% { stroke-dashoffset: 0; fill-opacity: 1; }
+  78% { stroke-dashoffset: 0; fill-opacity: 1; }
+  90% { stroke-dashoffset: 0; fill-opacity: 0; }
+  100% { stroke-dashoffset: -1; fill-opacity: 0; }
+}
+/* Chat input while a reply loads (components/chat.tsx): a strip 2/5 of the bar wide sweeps from off one end to off the other. */
+@keyframes input-shimmer {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(250%); }
+}
+/* The Customize preview's copy of the widget intro's typing and sheen (public/widget.js, @keyframes type / sheen). */
+@keyframes widget-type {
+  from { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+}
+@keyframes widget-sheen {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(260%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-draw { animation: none; stroke: none; fill-opacity: 1; }
 }
 /* Landing intro: hidden until GSAP fades it in, so it doesn't flash before hydration (components/landing.tsx). */
 @media (prefers-reduced-motion: no-preference) {

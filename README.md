@@ -1,10 +1,10 @@
-# Chatbot
+# Footnote
 
 Question → knowledge base → answer. No LLM, no embeddings, no AI APIs.
 Matching uses PostgreSQL full-text search.
 
 ```
-frontend/  Next.js: landing page at /, chat at /chat, admin dashboard at /admin (proxies /api to the backend)
+frontend/  Next.js: landing page at / (with the widget), widget page at /widget, admin dashboard at /admin (proxies /api to the backend)
 backend/   Node.js + TypeScript + Express REST API
 docker-compose.yml  PostgreSQL 17, S3-compatible storage (SeaweedFS), and the app images
 ```
@@ -20,7 +20,7 @@ cd frontend && npm i && npm run dev                   # UI on :3000
 ```
 
 - Landing page with a live demo: http://localhost:3000
-- Chat: http://localhost:3000/chat for the `default` knowledge base. Use `/chat?kb=<slug>` for another one.
+- Chat: the widget on http://localhost:3000 (the `default` knowledge base). Full page: `/widget?kb=<slug>`.
 - Admin: http://localhost:3000/admin. Sign in with Clerk when it is configured, else with `ADMIN_TOKEN`.
 
 Everything in Docker: put `ADMIN_TOKEN` and the Clerk keys in a `.env` next to `docker-compose.yml`, then
@@ -213,11 +213,16 @@ Paste one line on any website:
 <script src="https://<your chatbot host>/widget.js" data-kb="default" async></script>
 ```
 
-- `data-kb`: knowledge base slug (default `default`). Optional: `data-title` (header, default "Chat") and `data-greeting` (first message).
-- A chat button appears bottom-right. It opens a panel that posts to `POST /api/chat` on the host the script came from.
-- Plain JavaScript with no dependencies, rendered in a shadow root so the site's CSS cannot change it. Answers are inserted as text, never HTML.
-- The conversation (id and messages) is kept in `sessionStorage`, so it survives page loads on the site until the tab closes.
-- Follows the visitor's light/dark setting. Escape closes the panel.
+- `data-kb`: knowledge base slug (default `default`). Optional: `data-title` and `data-greeting`, which override the dashboard's Customize settings.
+- The script only draws the chat button (in a shadow root, so the site's CSS cannot change it). The chat is the app's
+  `/widget?kb=<slug>` page in an iframe, loaded on first hover or open. Opened directly, `/widget` is a full-page chat.
+- Looks come from the dashboard's **Customize** tab (theme, colors, corner, icon, texts), read from the public
+  `GET /api/widget/:slug` on every page load.
+- Only the websites listed in the Install tab may frame `/widget` (`frame-ancestors`, set in `frontend/proxy.ts`).
+- The conversation is kept in `sessionStorage`, so it survives page loads on the site until the tab closes.
+- A reply that arrives while the panel is closed shows a badge on the button. Escape closes the panel.
+- The host page can call `window.chatbotWidget.open()`, `.close()`, or `.destroy()` (single-page apps leaving the page).
+- The landing page at `/` embeds it for the `default` chatbot, exactly like a customer site.
 
 ## Analytics (Phase 9, `backend/src/analytics.ts`, admin tab "Analytics")
 
@@ -243,8 +248,7 @@ carries `handoff` with the knowledge base's channels. The widget shows **Talk to
 | Chat with an agent | Same ticket thread, email optional. Your replies appear in the visitor's widget, which polls every 5 seconds while open. |
 
 Set the channels in the Handoff tab. With none set, no handoff is offered. The inbox refreshes every 5 seconds,
-shows what the visitor asked the bot first, and lets you close or reopen a conversation. Tickets and live chat are widget-only.
-The hosted chat page at `/` offers the link channels.
+shows what the visitor asked the bot first, and lets you close or reopen a conversation.
 
 
 ## Multi-tenant platform (Phase 11)
@@ -272,7 +276,7 @@ To give the existing knowledge bases to a customer:
 and analytics were already per knowledge base.
 
 **Websites** (admin tab "Install"). The tab shows the embed snippet. When the list is not empty, `/api/chat` and `POST /api/tickets` refuse
-browsers on other sites with 403. The app's own origin (`APP_URL`) is always allowed, for the hosted chat page and the preview.
+browsers on other sites with 403. The app's own origin (`APP_URL`) is always allowed, for the widget page (/widget) and the preview.
 
 **Storage.** With `S3_BUCKET` set, uploaded files (not CSV FAQ imports) are stored under `kb/<id>/` before the document row is written.
 The Documents tab shows **Original** to download them. Deleting a document or knowledge base deletes its files.

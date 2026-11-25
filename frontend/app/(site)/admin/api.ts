@@ -1,9 +1,12 @@
+import type { Appearance } from "@/lib/appearance";
 /** Contact channels offered when the bot can't answer (see backend/src/handoff.ts). */
 export type Handoff = { email?: string; contactUrl?: string; whatsapp?: string; ticket?: boolean; live?: boolean };
 export type Kb = {
   id: number; name: string; slug: string; faq_count: number; document_count: number; open_tickets: number; handoff: Handoff;
   /** Origins allowed to embed the chatbot; empty = any. */
   websites: string[];
+  /** Customize tab: widget theme, accent, side, texts. */
+  appearance: Appearance;
 };
 export type Category = { id: number; name: string; faq_count: number; document_count: number };
 export type Faq = {

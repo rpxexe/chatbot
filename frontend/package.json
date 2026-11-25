@@ -9,6 +9,7 @@
   "dependencies": {
     "@clerk/nextjs": "^7.10.7",
     "@gsap/react": "^2.1.2",
+    "@shadcn/react": "^0.3.1",
     "@tailwindcss/postcss": "^4.3.5",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.5.2",

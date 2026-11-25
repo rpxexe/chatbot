@@ -5,6 +5,7 @@ import multer from "multer";
 import { pool, tx, categoryId, insertDocument, insertFaq, insertDefaultIntents } from "./db.js";
 import { chat, UUID } from "./context.js";
 import { EMAIL, offer, parseHandoff, REQUESTED_ANSWER, type HandoffSettings } from "./handoff.js";
+import { parseAppearance } from "./appearance.js";
 import { logQuestion, markReviewed, report } from "./analytics.js";
 import { extract, extractFetched, markdownToSections, HttpError, type Extracted } from "./extract.js";
 import { fetchUrl } from "./fetch-url.js";
@@ -154,6 +155,15 @@ async function openKb(req: Request) {
   return rows[0] as { id: number; handoff: HandoffSettings; websites: string[] };
 }
 
+// Widget settings. `websites`: who may frame the widget page (/widget); the frontend turns it into a frame-ancestors
+// policy, since requests from inside that frame carry the app's own Origin and so pass openKb's check. Empty: every
+// site may. `appearance`: the Customize tab's settings, read by widget.js on the customer's site (hence CORS).
+publicRouter.get("/widget/:slug", cors, async (req, res) => {
+  const { rows } = await pool.query("SELECT websites, appearance FROM knowledge_bases WHERE slug = $1", [req.params.slug]);
+  if (!rows[0]) throw new HttpError(404, `knowledge base "${req.params.slug}" not found`);
+  res.json({ websites: rows[0].websites, appearance: rows[0].appearance });
+});
+
 function ticketId(req: Request) {
   if (!UUID.test(req.params.id as string)) throw new HttpError(404, "ticket not found");
   return req.params.id as string;
@@ -214,7 +224,7 @@ const sha = (s: string) => createHash("sha256").update(s).digest();
 //   Everyone in an organization shares its chatbots.
 // - ADMIN_TOKEN: the platform operator (scripts, support, tests). It acts as tenant "admin", or as the tenant named in
 //   the X-Tenant-Id header, so it can reach any customer's data. Keep it secret.
-// The hosted chat page and the admin preview are on the app's own origin, which every chatbot allows.
+// The widget page (/widget) and the admin preview are on the app's own origin, which every chatbot allows.
 const APP_ORIGIN = new URL(process.env.APP_URL || "http://localhost:3000").origin;
 // authorizedParties: only accept session tokens minted for our own dashboard, not another app on the same Clerk instance.
 const clerk = process.env.CLERK_SECRET_KEY && process.env.CLERK_PUBLISHABLE_KEY ? clerkMiddleware({ authorizedParties: [APP_ORIGIN] }) : null;
@@ -271,7 +281,7 @@ adminRouter.get("/kbs", async (req, res) => {
             (SELECT count(*)::int FROM faqs f WHERE f.kb_id = k.id) AS faq_count,
             (SELECT count(*)::int FROM documents d WHERE d.kb_id = k.id) AS document_count,
             (SELECT count(*)::int FROM tickets t WHERE t.kb_id = k.id AND t.status = 'open') AS open_tickets,
-            k.handoff, k.websites
+            k.handoff, k.websites, k.appearance
        FROM knowledge_bases k WHERE k.owner_id = $1 ORDER BY k.id`,
     [req.tenant],
   );
@@ -299,6 +309,7 @@ adminRouter.patch("/kbs/:id", async (req, res) => {
     name: ["name", (v) => str(v, "name", 100)],
     handoff: ["handoff", parseHandoff],
     websites: ["websites", websites],
+    appearance: ["appearance", parseAppearance],
   });
   res.json({ ok: true });
 });

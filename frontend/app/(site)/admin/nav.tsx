@@ -74,7 +74,7 @@ export function ChatbotSwitcher({ token, kbs, kb, onSelect, onChange, onError }:
             {kb && (
               <>
                 <DropdownMenuItem asChild>
-                  <a href={`/chat?kb=${encodeURIComponent(kb.slug)}`} target="_blank" rel="noreferrer"><ExternalLink {...icon} />Open chat page</a>
+                  <a href={`/widget?kb=${encodeURIComponent(kb.slug)}`} target="_blank" rel="noreferrer"><ExternalLink {...icon} />Open chat in new tab</a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem variant="destructive" onSelect={remove}><Trash2 {...icon} />Delete {kb.name}</DropdownMenuItem>

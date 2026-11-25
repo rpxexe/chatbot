@@ -89,6 +89,112 @@
         "customs"
       ],
       "intent": "shipping"
+    },
+    {
+      "question": "What is Footnote?",
+      "answer": "Footnote is a help chatbot for your website. It answers visitors from your own FAQs and articles, and every answer names the article it came from.",
+      "category": "About Footnote",
+      "keywords": [
+        "footnote",
+        "chatbot",
+        "help widget",
+        "what is"
+      ]
+    },
+    {
+      "question": "Does Footnote use AI or an LLM?",
+      "answer": "No. Footnote matches questions with PostgreSQL full-text search, synonyms and intents. There is no LLM, no embeddings and no per-message AI bill, so it only ever says what your content says.",
+      "category": "About Footnote",
+      "keywords": [
+        "ai",
+        "llm",
+        "gpt",
+        "machine learning",
+        "embeddings",
+        "openai"
+      ]
+    },
+    {
+      "question": "How do I add Footnote to my website?",
+      "answer": "Paste one script tag before </body> on your site. The dashboard's Install tab gives you the exact line for your chatbot, and lets you list the websites allowed to show it.",
+      "category": "About Footnote",
+      "keywords": [
+        "install",
+        "embed",
+        "script tag",
+        "add to site",
+        "setup",
+        "widget"
+      ]
+    },
+    {
+      "question": "What content can Footnote answer from?",
+      "answer": "FAQs you write, and documents you upload: PDF, Word, Markdown, plain text or a CSV of FAQs. You can also import a web page. Footnote never answers from anything else.",
+      "category": "About Footnote",
+      "keywords": [
+        "upload",
+        "pdf",
+        "word",
+        "markdown",
+        "csv",
+        "import",
+        "knowledge base",
+        "content"
+      ]
+    },
+    {
+      "question": "What happens when Footnote can't answer?",
+      "answer": "It says so instead of guessing. When a match is weak it offers “Did you mean” suggestions, and it can hand the visitor to your team by email, WhatsApp, a contact form, a ticket or a live chat.",
+      "category": "About Footnote",
+      "keywords": [
+        "no answer",
+        "handoff",
+        "human",
+        "person",
+        "live chat",
+        "ticket",
+        "fallback"
+      ]
+    },
+    {
+      "question": "Can I customize how the widget looks?",
+      "answer": "Yes. The Customize tab sets the theme, colors, corner, button icon, greeting, starter questions and the intro animation, with a live preview before you save.",
+      "category": "About Footnote",
+      "keywords": [
+        "customize",
+        "theme",
+        "colors",
+        "branding",
+        "design",
+        "look",
+        "appearance"
+      ]
+    },
+    {
+      "question": "How do I see what visitors ask?",
+      "answer": "Analytics lists the questions visitors asked, how each was answered, and the ones Footnote couldn't answer. Turn any of those into an FAQ in one click.",
+      "category": "About Footnote",
+      "keywords": [
+        "analytics",
+        "reports",
+        "unanswered",
+        "insights",
+        "questions asked",
+        "statistics"
+      ]
+    },
+    {
+      "question": "Can my team share one dashboard?",
+      "answer": "Yes. Your organization is your workspace: invite teammates and everyone works on the same chatbots, FAQs and inbox.",
+      "category": "About Footnote",
+      "keywords": [
+        "team",
+        "teammates",
+        "organization",
+        "workspace",
+        "invite",
+        "collaborate"
+      ]
     }
   ],
   "documents": [

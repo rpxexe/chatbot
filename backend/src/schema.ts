@@ -228,4 +228,9 @@ CREATE INDEX knowledge_bases_owner_idx ON knowledge_bases (owner_id);
 ALTER TABLE knowledge_bases ADD COLUMN websites TEXT[] NOT NULL DEFAULT '{}';
 ALTER TABLE documents ADD COLUMN file_key TEXT;
 `,
+
+  // 10: Customize tab — widget theme, accent color, position, texts and starter questions (see appearance.ts).
+  /* sql */ `
+ALTER TABLE knowledge_bases ADD COLUMN appearance JSONB NOT NULL DEFAULT '{}';
+`,
 ];

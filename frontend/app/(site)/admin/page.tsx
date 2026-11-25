@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { SignIn, useAuth } from "@clerk/nextjs";
 import {
-  BookA, BookOpenText, ChartLine, Crosshair, FlaskConical, LifeBuoy, ListChecks, MessageCircleQuestion, Plug, Tags, type LucideIcon,
+  BookA, BookOpenText, ChartLine, Crosshair, FlaskConical, LifeBuoy, ListChecks, MessageCircleQuestion, Palette, Plug, Tags, type LucideIcon,
 } from "lucide-react";
 import { Alert, AlertAction, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -27,6 +27,7 @@ import { SynonymsPanel } from "./synonyms";
 import { AnalyticsPanel } from "./analytics";
 import { HandoffPanel } from "./handoff";
 import { InstallPanel } from "./install";
+import { CustomizePanel } from "./customize";
 import { ChatbotSwitcher, ClerkNavUser, TokenNavUser } from "./nav";
 import { SetupGuide } from "./setup";
 
@@ -36,10 +37,10 @@ const store = {
   set: (v: string) => { try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch {} },
 };
 
-type Tab = "setup" | "faqs" | "documents" | "categories" | "intents" | "synonyms" | "analytics" | "handoff" | "install";
+type Tab = "setup" | "faqs" | "documents" | "categories" | "intents" | "synonyms" | "analytics" | "handoff" | "customize" | "install";
 const TAB_LABEL: Record<Tab, string> = {
   setup: "Setup guide", faqs: "FAQs", documents: "Documents", categories: "Categories", intents: "Intents", synonyms: "Synonyms",
-  analytics: "Analytics", handoff: "Handoff", install: "Install",
+  analytics: "Analytics", handoff: "Handoff", customize: "Customize", install: "Install",
 };
 const TAB_HINT: Record<Tab, string> = {
   setup: "From an empty chatbot to answers on your website, in six steps",
@@ -50,6 +51,7 @@ const TAB_HINT: Record<Tab, string> = {
   synonyms: "Words your visitors use that mean the same as the words in your content",
   analytics: "What visitors asked, and how the chatbot answered",
   handoff: "How visitors reach a person, and the conversations your team answers",
+  customize: "Theme, color, position and texts of the chat on your website",
   install: "Put the chatbot on your website and choose where it may appear",
 };
 const NAV: { label: string; tabs: [Tab, LucideIcon][] }[] = [
@@ -57,7 +59,7 @@ const NAV: { label: string; tabs: [Tab, LucideIcon][] }[] = [
   { label: "Content", tabs: [["faqs", MessageCircleQuestion], ["documents", BookOpenText], ["categories", Tags]] },
   { label: "Matching", tabs: [["intents", Crosshair], ["synonyms", BookA]] },
   { label: "Visitors", tabs: [["analytics", ChartLine], ["handoff", LifeBuoy]] },
-  { label: "Website", tabs: [["install", Plug]] },
+  { label: "Website", tabs: [["customize", Palette], ["install", Plug]] },
 ];
 // The test panel sits beside the tabs that change answers. Everywhere else it opens from the header.
 const DOCKED: Tab[] = ["faqs", "documents", "intents", "synonyms"];
@@ -215,6 +217,7 @@ function Dashboard({ token, account, onUnauthorized }: { token: Token; account: 
                   {tab === "synonyms" && <SynonymsPanel {...props} />}
                   {tab === "analytics" && <AnalyticsPanel {...props} />}
                   {tab === "handoff" && <HandoffPanel token={token} kb={kb} onChange={bump} onError={fail} />}
+                  {tab === "customize" && <CustomizePanel key={kb.id} token={token} kb={kb} onChange={bump} onError={fail} />}
                   {/* Keyed by KB so the websites field starts from the selected chatbot's list. */}
                   {tab === "install" && <InstallPanel key={kb.id} token={token} kb={kb} onChange={bump} onError={fail} />}
                 </>
@@ -278,7 +281,7 @@ function Login({ onToken, error }: { onToken: (t: string) => void; error: string
   }
   return (
     <main className="mx-auto mt-[16vh] max-w-sm px-4">
-      <h1 className="text-2xl font-medium">Chatbot admin</h1>
+      <h1 className="text-2xl font-medium">Footnote admin</h1>
       <p className="mt-1 mb-6 text-sm text-subtle">Sign in with the operator token set as <span className="font-mono text-xs">ADMIN_TOKEN</span> on the server</p>
       <form onSubmit={submit} className="flex flex-col gap-2">
         <Label htmlFor="token">Admin token</Label>
