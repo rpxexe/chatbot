@@ -131,7 +131,7 @@ export function Landing() {
             {NAME}
           </Link>
           <nav className="hidden items-center gap-1 text-sm md:flex">
-            {[["#features", "Features"], ["#how", "How it works"], ["#setup", "Setup guide"], ["#demo", "Try it"]].map(([href, label]) => (
+            {[["#features", "Features"], ["#how", "How it works"], ["#setup", "Setup guide"], ["/docs", "Docs"], ["#demo", "Try it"]].map(([href, label]) => (
               <Button key={href} variant="ghost" size="sm" className="text-subtle" asChild>
                 <a href={href}>{label}</a>
               </Button>
@@ -228,6 +228,10 @@ export function Landing() {
                 <code>{`<script src="https://your-host/widget.js" data-kb="your-chatbot" async></script>`}</code>
               </pre>
             </Card>
+            <p data-reveal className="mx-auto mt-4 max-w-2xl text-center text-sm text-subtle">
+              Step-by-step guides for HTML, React, Next.js, Vue, Angular, WordPress, Shopify, Webflow, Wix and Squarespace are in the{" "}
+              <Link href="/docs" className="text-foreground underline underline-offset-4 hover:text-brand">docs</Link>.
+            </p>
           </div>
         </section>
 

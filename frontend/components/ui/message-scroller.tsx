@@ -45,7 +45,9 @@ function MessageScrollerViewport({
         // No scrollbar-thin: scrollbar-width makes Chromium drop the app-wide ::-webkit-scrollbar style (globals.css).
         // No data-pending-scroll:invisible: it hid the server-rendered greeting until the JavaScript loaded, which is
         // most of the widget's open time. Restored chats may now jump to the bottom once on load.
-        "size-full min-h-0 min-w-0 scroll-fade-b scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content",
+        // [overflow-anchor:none]: the scroller positions messages itself; the browser's own scroll anchoring adjusted
+        // the same scroll a second time when content above resized, jumping the view up after each question.
+        "size-full min-h-0 min-w-0 scroll-fade-b scrollbar-gutter-stable overflow-y-auto overscroll-contain contain-content [overflow-anchor:none]",
         className
       )}
       {...props}
@@ -75,10 +77,9 @@ function MessageScrollerItem({
     <MessageScrollerPrimitive.Item
       data-slot="message-scroller-item"
       scrollAnchor={scrollAnchor}
-      className={cn(
-        "min-w-0 shrink-0 [contain-intrinsic-size:auto_10rem] [content-visibility:auto]",
-        className
-      )}
+      // No content-visibility:auto: off-screen messages got a guessed 10rem height and resized when scrolled back into
+      // view, which moved the pinned question in long chats. Chats are capped (MAX_STORED), so rendering all is cheap.
+      className={cn("min-w-0 shrink-0", className)}
       {...props}
     />
   )
