@@ -9,6 +9,7 @@ import { useGSAP } from "@gsap/react";
 import Lenis from "lenis";
 import { BarChart3, BookOpenCheck, Code2, Database, FileText, HelpCircle, MessagesSquare, UserRound } from "lucide-react";
 import { Chat } from "@/components/chat";
+import { Logo } from "@/components/logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,7 @@ import { Separator } from "@/components/ui/separator";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
-const NAME = "Help Assistant";
+const NAME = "Footnote";
 // Inlined at build. Without Clerk, /admin signs in with the operator token and there is no sign-up.
 const CLERK = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const icon = { className: "size-5 text-brand", strokeWidth: 1.75, "aria-hidden": true } as const;
@@ -36,7 +37,7 @@ const STEPS = [
   { icon: Code2, title: "Embed it", text: "Paste one script tag on your site. The widget does the rest." },
 ];
 
-// Mirrors the in-app guide (app/admin/setup.tsx), written for someone who hasn't signed up yet.
+// Mirrors the in-app guide (app/(site)/admin/setup.tsx), written for someone who hasn't signed up yet.
 const SETUP: { title: string; text: string; optional?: boolean }[] = [
   { title: "Create your account", text: "Sign up and your dashboard opens. Your organization is your workspace, so teammates can join it." },
   { title: "Create a chatbot", text: "Give it a name. Each chatbot has its own content, settings and public link, so one account can run several sites." },
@@ -47,6 +48,9 @@ const SETUP: { title: string; text: string; optional?: boolean }[] = [
   { title: "Put it on your website", text: "Paste one line of code before </body>. List your website addresses so no other site can show your chatbot." },
   { title: "Check what visitors ask", text: "Analytics lists the questions it couldn’t answer. Turn each into an FAQ in one click, and the next visitor gets an answer." },
 ];
+
+/** What public/widget.js puts on window once it has loaded. */
+type WidgetWindow = Window & { chatbotWidget?: { open: () => void; close: () => void; destroy: () => void } };
 
 export function Landing() {
   const root = useRef<HTMLDivElement>(null);
@@ -62,6 +66,24 @@ export function Landing() {
     return () => {
       gsap.ticker.remove(tick);
       lenis.destroy();
+    };
+  }, []);
+
+  // The real website widget, as a customer would embed it, on the "default" chatbot. Added here rather than in the
+  // layout so it shows on the landing page only, and removed when the visitor moves on (e.g. to the dashboard).
+  useEffect(() => {
+    let gone = false;
+    const s = document.createElement("script");
+    s.src = "/widget.js";
+    s.async = true;
+    s.dataset.kb = "default";
+    // A script already downloading still runs after it is removed: if we left first, take the widget straight down.
+    s.onload = () => { if (gone) (window as WidgetWindow).chatbotWidget?.destroy(); };
+    document.body.append(s);
+    return () => {
+      gone = true;
+      (window as WidgetWindow).chatbotWidget?.destroy();
+      s.remove();
     };
   }, []);
 
@@ -101,10 +123,8 @@ export function Landing() {
     <div ref={root} className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b bg-background/85 backdrop-blur-sm">
         <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2 font-medium">
-            <span className="flex size-7 items-center justify-center rounded-lg bg-brand text-brand-foreground">
-              <MessagesSquare className="size-4" strokeWidth={2} aria-hidden="true" />
-            </span>
+          <Link href="/" className="group/logo flex items-center gap-2.5 font-medium">
+            <Logo className="h-6" />
             {NAME}
           </Link>
           <nav className="hidden items-center gap-1 text-sm md:flex">
@@ -134,8 +154,19 @@ export function Landing() {
               asks when it isn't sure, and hands off to a person when it can't help.
             </p>
             <div data-hero className="mt-7 flex flex-wrap gap-3">
+              {/* Opens the site's own widget; until widget.js has loaded, scrolls to the demo card instead. */}
               <Button size="lg" asChild>
-                <a href="#demo">Try the demo</a>
+                <a
+                  href="#demo"
+                  onClick={(e) => {
+                    const w = (window as WidgetWindow).chatbotWidget;
+                    if (!w) return;
+                    e.preventDefault();
+                    w.open();
+                  }}
+                >
+                  Try the demo
+                </a>
               </Button>
               <PrimaryCta size="lg" variant="outline" />
             </div>
@@ -149,6 +180,7 @@ export function Landing() {
             </div>
             <Chat
               className="flex-1"
+              autoplay
               empty={
                 <div>
                   <h2 className="text-xl font-medium">What do you need to know?</h2>
@@ -258,7 +290,7 @@ export function Landing() {
 
       <footer className="border-t">
         <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-8 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:px-6">
-          <span>{NAME}</span>
+          <span className="group/logo flex items-center gap-2"><Logo className="h-4" />{NAME}</span>
           <Separator className="sm:hidden" />
           <span>© {new Date().getFullYear()}</span>
         </div>

@@ -144,6 +144,11 @@ export async function answer(message: string, kbId: number): Promise<ChatResult>
 
   const top = ranked[0];
   const searchFound = !!top && top.score >= MIN_SCORE;
+  // FAQs asked the same way (a duplicate added by hand or import) are one question to the visitor: never a rival, never
+  // offered as "Did you mean" the very question just answered.
+  const question = (r: (typeof ranked)[number]) => (r.entry.type === "faq" ? r.entry.title.trim().toLowerCase() : null);
+  const sameAsTop = (r: (typeof ranked)[number]) => !!top && question(r) !== null && question(r) === question(top);
+  const rival = ranked.slice(1).find((r) => !sameAsTop(r));
   // 1. A confident intent with a fixed response, or any detected one when search has nothing better.
   // 2. A search result above the threshold (intent-tagged entries already boosted).
   // 3. The best entry tagged with the detected intent, even with weak word overlap.
@@ -158,7 +163,7 @@ export async function answer(message: string, kbId: number): Promise<ChatResult>
   const confidence = round(
     via === "intent" ? calibrate(intent!.confidence)
     : via === "intent_fallback" ? capped(calibrate(intent!.confidence))
-    : via === "search" && ranked[1]?.score >= AMBIGUOUS_RATIO * top.score ? capped(calibrate(top.score))
+    : via === "search" && rival && rival.score >= AMBIGUOUS_RATIO * top.score ? capped(calibrate(top.score))
     : calibrate(top?.score ?? 0),
   );
   // Every path but "none" starts at CLARIFY or above (MIN_SCORE, INTENT_MIN both calibrate to 0.5), so `found` = band above low.
@@ -175,7 +180,8 @@ export async function answer(message: string, kbId: number): Promise<ChatResult>
   };
   const related = (skipTop: boolean) => ranked
     .slice(skipTop ? 1 : 0)
-    .filter((r) => r.entry.type === "faq" && r.score >= RELATED_SCORE)
+    .filter((r) => r.entry.type === "faq" && r.score >= RELATED_SCORE && !(skipTop && sameAsTop(r)))
+    .filter((r, i, all) => all.findIndex((o) => question(o) === question(r)) === i)
     .slice(0, 3)
     .map((r) => ({ id: r.entry.id, question: r.entry.title }));
 

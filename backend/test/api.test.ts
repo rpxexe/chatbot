@@ -83,6 +83,16 @@ test("confidence bands: answer, answer + clarification, fallback", async () => {
   assert.ok(low.confidence < 0.5);
 });
 
+test("a duplicated FAQ question is no rival and never offered as 'Did you mean' itself", async () => {
+  // Words no other test uses: this KB is shared by the whole file.
+  const faq = { question: "Do you sell telescope lenses?", answer: "Yes, in the astronomy aisle." };
+  for (let i = 0; i < 2; i++) assert.equal((await req("POST", `/admin/kbs/${kb}/faqs`, faq)).status, 201);
+  const r = await chat(faq.question, slug);
+  assert.equal(r.results[1].title, faq.question, "both copies rank");
+  assert.deepEqual([r.level, r.clarification], ["high", null]);
+  assert.ok(!r.related.some((q: { question: string }) => q.question === faq.question));
+});
+
 test("widget contract: CORS on /chat only, knowledgeBaseId, source.title", async () => {
   const pre = await fetch(`${base}/chat`, { method: "OPTIONS", headers: { origin: "https://shop.example", "access-control-request-method": "POST" } });
   assert.equal(pre.status, 204);
@@ -421,11 +431,28 @@ test("websites: only listed sites and the app itself may use a chatbot from a br
   assert.equal((await from("https://elsewhere.example")).status, 403);
   assert.equal((await from(new URL(process.env.APP_URL || "http://localhost:3000").origin)).status, 200);
   assert.equal((await from()).status, 200, "no Origin header: not a browser, not limited");
+  assert.deepEqual((await (await req("GET", `/widget/${slug}`)).json()).websites, mine.websites, "the widget page frames only on these");
+  assert.equal((await req("GET", "/widget/no-such-kb")).status, 404);
 
   assert.equal((await set(["ftp://files.example.com"])).status, 400);
   assert.equal((await set("example.com")).status, 400);
   assert.equal((await set([])).status, 200);
   assert.equal((await from("https://elsewhere.example")).status, 200, "an empty list allows every site");
+});
+
+test("appearance: validated, stored minimal, served publicly to the widget with CORS", async () => {
+  const set = (appearance: unknown) => req("PATCH", `/admin/kbs/${kb}`, { appearance });
+  const look = { theme: "dark", color: "#1F6B4A", background: "#FFF8F0", text: "", bubble: "#e0f2fe", badge: "#F59E0B", intro: false, introText: " Need a hand? ", position: "top-left", icon: "headset", title: " Shop help ", greeting: "", suggestions: ["Where is my order?", " "], sources: false };
+  assert.equal((await set(look)).status, 200);
+  const res = await req("GET", `/widget/${slug}`, undefined, {});
+  assert.equal(res.headers.get("access-control-allow-origin"), "*");
+  assert.deepEqual((await res.json()).appearance, { theme: "dark", color: "#1f6b4a", background: "#fff8f0", bubble: "#e0f2fe", badge: "#f59e0b", position: "top-left", icon: "headset", title: "Shop help", introText: "Need a hand?", suggestions: ["Where is my order?"], sources: false, intro: false });
+
+  for (const wrong of [{ theme: "neon" }, { icon: "rocket" }, { text: "red" }, { bubble: "#12345" }, { badge: "red" }, { intro: "no" }, { introText: "x".repeat(41) }, { color: "green" }, { position: "top" }, { suggestions: ["a", "b", "c", "d", "e"] }, { sources: "yes" }, { font: "x" }, []]) {
+    assert.equal((await set(wrong)).status, 400, JSON.stringify(wrong));
+  }
+  assert.equal((await set({})).status, 200);
+  assert.deepEqual((await (await req("GET", `/widget/${slug}`, undefined, {})).json()).appearance, {});
 });
 
 test("uploads keep the original file in S3 storage", { skip: !process.env.S3_BUCKET && "S3_BUCKET not set" }, async () => {

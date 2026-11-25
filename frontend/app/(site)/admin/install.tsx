@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
+import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -16,7 +17,13 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
   const [sites, setSites] = useState(kb.websites.join("\n"));
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => setOrigin(window.location.origin), []);
+  useEffect(() => {
+    if (!copied) return;
+    const t = setTimeout(() => setCopied(false), 2000);
+    return () => clearTimeout(t);
+  }, [copied]);
 
   const snippet = `<script src="${origin}/widget.js" data-kb="${kb.slug}" async></script>`;
 
@@ -36,8 +43,18 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
         <CardContent className="flex flex-col gap-2">
           <h2 className="font-medium">Add the chatbot to your website</h2>
           <p className="text-sm text-muted-foreground">Paste this line before <code>&lt;/body&gt;</code> on every page that should show the chat button.</p>
-          <pre className="overflow-x-auto rounded-lg border bg-muted px-4 py-3 font-mono text-xs leading-5"><code>{snippet}</code></pre>
-          <div><Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(snippet).catch(onError)}>Copy</Button></div>
+          <div className="relative">
+            <pre className="overflow-x-auto rounded-lg border bg-muted py-3 pr-24 pl-4 font-mono text-xs leading-5"><code>{snippet}</code></pre>
+            <Button
+              variant="outline"
+              size="sm"
+              className="absolute top-2 right-2 bg-card"
+              onClick={() => navigator.clipboard.writeText(snippet).then(() => setCopied(true), onError)}
+            >
+              {copied ? <Check data-icon="inline-start" aria-hidden="true" /> : <Copy data-icon="inline-start" aria-hidden="true" />}
+              {copied ? "Copied" : "Copy"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
       <Card>
