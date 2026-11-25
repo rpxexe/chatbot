@@ -311,8 +311,9 @@ export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay =
                   {messages.map((m) => (
                     <MessageScrollerItem
                       key={m.id}
+                      // No scrollAnchor: it pinned each question to the top (pushing the chat up) and re-measured it
+                      // mid slide-in animation, so the view jumped. autoScroll keeps the newest message at the bottom.
                       messageId={m.id}
-                      scrollAnchor={m.role === "user"}
                       className={cn(
                         !restored.current.has(m.id) && "animate-in fade-in-0 slide-in-from-bottom-3 zoom-in-[0.97] duration-300 ease-out motion-reduce:animate-none",
                         m.role === "user" ? "origin-bottom-right" : "origin-bottom-left",
