@@ -388,31 +388,17 @@ export function Chat({ empty, greeting, suggestions = [], storageKey, autoplay =
           onSubmit={onSubmit}
         >
           <Label htmlFor="q" className="sr-only">Your question</Label>
-          {/* Focus: a gradient border and a soft brand glow (below) instead of InputGroup's wide 3px ring. */}
+          {/*
+            .chat-input (globals.css): the gradient border on focus and the light running along it while loading are the
+            border's own background, so the inside always stays the plain field color and the text stays readable.
+          */}
           <InputGroup
             aria-busy={busy}
-            className={cn(
-              "relative rounded-xl bg-card shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[border-color,box-shadow] duration-300 dark:bg-card has-[[data-slot=input-group-control]:focus-visible]:border-transparent has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:shadow-[0_6px_20px_-8px_color-mix(in_oklch,var(--brand)_45%,transparent),0_1px_2px_rgb(0_0_0/0.05)]",
-              busy && "motion-reduce:border-brand/50",
-            )}
+            className="chat-input relative overflow-hidden rounded-xl bg-card shadow-[0_1px_2px_rgb(0_0_0/0.05)] transition-[border-color,box-shadow] duration-300 dark:bg-card has-[[data-slot=input-group-control]:focus-visible]:ring-0 has-[[data-slot=input-group-control]:focus-visible]:shadow-[0_6px_20px_-8px_color-mix(in_oklch,var(--brand)_45%,transparent),0_1px_2px_rgb(0_0_0/0.05)]"
           >
-            {!busy && (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-px rounded-[inherit] bg-[linear-gradient(120deg,var(--brand),color-mix(in_oklch,var(--brand)_25%,transparent)_45%,color-mix(in_oklch,var(--brand)_25%,transparent)_60%,var(--brand))] p-px opacity-0 transition-opacity duration-300 [mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)] [mask-composite:exclude] group-has-[[data-slot=input-group-control]:focus-visible]/input-group:opacity-100"
-              />
-            )}
-            {/*
-              Loading: a brand-colored light runs along the border (a strip masked to the 1px ring) and, much fainter,
-              across the field. Only the strips move (transform), so it costs little. Reduced motion: a tinted border.
-            */}
+            {/* Loading: a faint sheen across the field too (only a strip moves). */}
             {busy && (
-              <span aria-hidden="true" className="pointer-events-none absolute -inset-px overflow-hidden rounded-[inherit] motion-reduce:hidden">
-                <span className="absolute inset-0 overflow-hidden rounded-[inherit] p-px [mask:linear-gradient(#000_0_0)_content-box,linear-gradient(#000_0_0)] [mask-composite:exclude]">
-                  <span className="absolute inset-y-0 left-0 w-2/5 animate-[input-shimmer_1.6s_cubic-bezier(0.45,0,0.55,1)_infinite] bg-[linear-gradient(90deg,transparent,var(--brand),transparent)]" />
-                </span>
-                <span className="absolute inset-y-0 left-0 w-2/5 animate-[input-shimmer_1.6s_cubic-bezier(0.45,0,0.55,1)_infinite] bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--brand)_9%,transparent),transparent)]" />
-              </span>
+              <span aria-hidden="true" className="pointer-events-none absolute inset-y-0 left-0 w-2/5 animate-[input-shimmer_1.6s_cubic-bezier(0.45,0,0.55,1)_infinite] bg-[linear-gradient(90deg,transparent,color-mix(in_oklch,var(--brand)_7%,transparent),transparent)] motion-reduce:hidden" />
             )}
             <InputGroupTextarea
               id="q"
