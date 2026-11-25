@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
-import { Show, SignInButton, SignUpButton } from "@clerk/nextjs";
+import { Show, SignInButton, SignOutButton, SignUpButton } from "@clerk/nextjs";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -267,7 +267,7 @@ export function Landing() {
   );
 }
 
-/** Header: Log in + Sign up while signed out, Dashboard once signed in. */
+/** Header: Log in + Sign up while signed out, Sign out + Dashboard once signed in. */
 function AuthButtons() {
   if (!CLERK) return <Button size="sm" asChild><Link href="/admin">Log in</Link></Button>;
   return (
@@ -281,6 +281,9 @@ function AuthButtons() {
         </SignUpButton>
       </Show>
       <Show when="signed-in">
+        <SignOutButton>
+          <Button variant="ghost" size="sm">Sign out</Button>
+        </SignOutButton>
         <Button size="sm" asChild><Link href="/admin">Dashboard</Link></Button>
       </Show>
     </>
