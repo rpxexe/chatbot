@@ -71,14 +71,15 @@ export function Landing() {
     };
   }, []);
 
-  // The real website widget, as a customer would embed it, on the "default" chatbot. Added here rather than in the
-  // layout so it shows on the landing page only, and removed when the visitor moves on (e.g. to the dashboard).
+  // The real website widget, as a customer would embed it, on the same chatbot as the demo card (DEMO_KB). Added here
+  // rather than in the layout so it shows on the landing page only, and removed when the
+  // visitor moves on (e.g. to the dashboard).
   useEffect(() => {
     let gone = false;
     const s = document.createElement("script");
     s.src = "/widget.js";
     s.async = true;
-    s.dataset.kb = "default";
+    s.dataset.kb = DEMO_KB;
     // A script already downloading still runs after it is removed: if we left first, take the widget straight down.
     s.onload = () => { if (gone) (window as WidgetWindow).chatbotWidget?.destroy(); };
     document.body.append(s);
@@ -325,8 +326,9 @@ function PrimaryCta({ size, variant = "default" }: { size: "sm" | "lg"; variant?
   );
 }
 
-// Which chatbot the demo talks to (its slug, from the dashboard's chatbot switcher). Unset: the built-in sample store.
-const DEMO_KB = process.env.NEXT_PUBLIC_DEMO_KB || "";
+// The landing page's own chatbot (demo card and floating widget): its slug from the dashboard's chatbot switcher.
+// NEXT_PUBLIC_DEMO_KB overrides it; set it to "default" for the built-in sample store.
+const DEMO_KB = process.env.NEXT_PUBLIC_DEMO_KB || "footnote-bd0daa";
 const SAMPLE: Demo = {
   subtitle: "Ask about refunds, shipping or accounts",
   intro: "This demo answers from a sample store's help articles.",
@@ -348,9 +350,9 @@ function fromAppearance(a: Appearance): Demo {
 
 /** The live demo card's chat. Waits for the chatbot's settings, because autoplay reads the suggestions once. */
 function Demo() {
-  const [demo, setDemo] = useState<Demo | null>(DEMO_KB ? null : SAMPLE);
+  const [demo, setDemo] = useState<Demo | null>(DEMO_KB === "default" ? SAMPLE : null);
   useEffect(() => {
-    if (!DEMO_KB) return;
+    if (DEMO_KB === "default") return;
     fetch(`/api/widget/${encodeURIComponent(DEMO_KB)}`)
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((d: { appearance?: Appearance }) => setDemo(fromAppearance(d.appearance ?? {})))
@@ -367,7 +369,7 @@ function Demo() {
       {demo ? (
         <Chat
           className="flex-1"
-          chatbot={DEMO_KB || undefined}
+          chatbot={DEMO_KB}
           autoplay
           sources={demo.sources}
           empty={
