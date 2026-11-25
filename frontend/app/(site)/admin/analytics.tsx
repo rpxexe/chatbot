@@ -8,7 +8,8 @@ import { Progress } from "@/components/ui/progress";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api, type Category, type Intent, type Token } from "./api";
 import { FaqForm } from "./faqs";
-import { Plus } from "lucide-react";
+import { Loader2, Plus } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { ItemCard } from "./ui";
 
@@ -32,9 +33,12 @@ const when = (iso: string) => new Date(iso).toLocaleString(undefined, { dateStyl
 export function AnalyticsPanel({ token, kbId, categories, intents, version, onChange, onError }: Props) {
   const [days, setDays] = useState<number>(30);
   const [report, setReport] = useState<Report | null>(null);
+  // A new range in flight: the current report stays, dimmed, until the new one arrives.
+  const [loading, setLoading] = useState(true);
 
   const load = useCallback(() => {
-    api<Report>(token, `/kbs/${kbId}/analytics?days=${days}`).then(setReport).catch(onError);
+    setLoading(true);
+    api<Report>(token, `/kbs/${kbId}/analytics?days=${days}`).then(setReport).catch(onError).finally(() => setLoading(false));
   }, [token, kbId, days, onError]);
   useEffect(load, [load, version]);
 
@@ -42,15 +46,18 @@ export function AnalyticsPanel({ token, kbId, categories, intents, version, onCh
     try { await api(token, `/kbs/${kbId}/analytics/reviewed`, "POST", { key }); toast.success("Dismissed"); load(); } catch (e) { onError(e); }
   }
 
-  if (!report) return <p className="text-muted-foreground">Loading</p>;
+  if (!report) return <AnalyticsSkeleton />;
   const t = report.totals;
   const list = { token, kbId, categories, intents, onReview: review, onChange, onError };
 
   return (
-    <div className="flex flex-col gap-8">
-      <ToggleGroup type="single" variant="outline" spacing={0} className="self-start bg-card" value={String(days)} onValueChange={(v) => v && setDays(Number(v))} aria-label="Time range">
-        {RANGES.map((d) => <ToggleGroupItem key={d} value={String(d)} className="px-3">Last {d} days</ToggleGroupItem>)}
-      </ToggleGroup>
+    <div className={cn("flex flex-col gap-8 transition-opacity", loading && "opacity-60")} aria-busy={loading}>
+      <div className="flex items-center gap-3">
+        <ToggleGroup type="single" variant="outline" spacing={0} className="self-start bg-card" value={String(days)} onValueChange={(v) => v && setDays(Number(v))} aria-label="Time range">
+          {RANGES.map((d) => <ToggleGroupItem key={d} value={String(d)} className="px-3">Last {d} days</ToggleGroupItem>)}
+        </ToggleGroup>
+        {loading && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Updating" />}
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
         <Ledger totals={t} />
@@ -198,5 +205,36 @@ function AskedList({ items, empty, token, kbId, categories, intents, onReview, o
         </ItemCard>
       ))}
     </ul>
+  );
+}
+
+/** The report's shape while it loads: range picker, totals, two question lists, three rankings. */
+function AnalyticsSkeleton() {
+  return (
+    <div className="flex flex-col gap-8" aria-busy="true" aria-label="Loading analytics">
+      <Skeleton className="h-9 w-80 max-w-full" />
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+        <Card className="gap-4 p-6">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-full rounded-full" />
+          <div className="grid grid-cols-3 gap-4">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-10" />)}</div>
+        </Card>
+        <Card className="gap-4 p-6"><Skeleton className="h-12" /><Skeleton className="h-12" /></Card>
+      </div>
+      {[0, 1].map((i) => (
+        <div key={i} className="flex flex-col gap-3">
+          <Skeleton className="h-5 w-72 max-w-full" />
+          {[0, 1].map((j) => <Skeleton key={j} className="h-16 rounded-xl" />)}
+        </div>
+      ))}
+      <div className="grid gap-8 md:grid-cols-3">
+        {[0, 1, 2].map((i) => (
+          <div key={i} className="flex flex-col gap-2">
+            <Skeleton className="h-5 w-40" />
+            {[0, 1, 2, 3].map((j) => <Skeleton key={j} className="h-4" />)}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }

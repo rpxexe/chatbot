@@ -12,7 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { api, splitKeywords, type Category, type Faq, type Intent, type Token } from "./api";
 import { IntentSelect } from "./intents";
-import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { EnabledSwitch, Hint, ItemCard, Meta, RowAction } from "./ui";
 
 type Props = { token: Token; kbId: number; categories: Category[]; intents: Intent[]; version: number; onChange: () => void; onError: (e: unknown) => void };
@@ -25,13 +27,20 @@ export function FaqsPanel({ token, kbId, categories, intents, version, onChange,
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [editing, setEditing] = useState<Faq | "new" | null>(null);
+  // A search or filter in flight: the current list stays, dimmed, until the new one arrives.
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (q.trim()) params.set("q", q.trim());
     if (cat) params.set("category", cat);
-    const t = setTimeout(() => api<Faq[]>(token, `/kbs/${kbId}/faqs?${params}`).then(setFaqs).catch(onError), 200);
-    return () => clearTimeout(t);
+    setLoading(true);
+    let stale = false;
+    const t = setTimeout(() => api<Faq[]>(token, `/kbs/${kbId}/faqs?${params}`)
+      .then((list) => { if (!stale) setFaqs(list); })
+      .catch(onError)
+      .finally(() => { if (!stale) setLoading(false); }), 200);
+    return () => { stale = true; clearTimeout(t); };
   }, [token, kbId, q, cat, version, onError]);
 
   async function toggle(f: Faq) {
@@ -64,9 +73,26 @@ export function FaqsPanel({ token, kbId, categories, intents, version, onChange,
         <Card><CardContent><FaqForm {...{ token, kbId, categories, intents, onError }} onDone={() => { setEditing(null); onChange(); }} onCancel={() => setEditing(null)} /></CardContent></Card>
       )}
 
-      {faqs?.length === 0 && <p className="text-muted-foreground">No FAQs{q || cat ? " match" : " yet"}</p>}
-      {faqs && faqs.length > 0 && <Meta className="font-mono tabular-nums">{faqs.length} {faqs.length === 1 ? "FAQ" : "FAQs"}</Meta>}
-      <ul className="flex flex-col gap-2">
+      {faqs === null && (
+        <ul className="flex flex-col gap-2" aria-busy="true" aria-label="Loading FAQs">
+          {[0, 1, 2, 3].map((i) => (
+            <ItemCard key={i}>
+              <Skeleton className="h-4 w-2/3" />
+              <Skeleton className="h-3.5 w-full" />
+              <Skeleton className="h-3.5 w-4/5" />
+              <div className="flex gap-2"><Skeleton className="h-5 w-20 rounded-full" /><Skeleton className="h-5 w-16 rounded-full" /></div>
+            </ItemCard>
+          ))}
+        </ul>
+      )}
+      {faqs?.length === 0 && !loading && <p className="text-muted-foreground">No FAQs{q || cat ? " match" : " yet"}</p>}
+      {faqs && faqs.length > 0 && (
+        <Meta className="flex items-center gap-1.5 font-mono tabular-nums">
+          {faqs.length} {faqs.length === 1 ? "FAQ" : "FAQs"}
+          {loading && <Loader2 className="size-3 animate-spin" aria-label="Updating" />}
+        </Meta>
+      )}
+      <ul className={cn("flex flex-col gap-2 transition-opacity", loading && faqs && "opacity-60")} aria-busy={loading}>
         {faqs?.map((f) => (
           <ItemCard key={f.id} enabled={f.enabled}>
             {editing !== "new" && editing?.id === f.id ? (

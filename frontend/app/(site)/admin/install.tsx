@@ -2,30 +2,23 @@
 import { toast } from "sonner";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CodeBlock, EmbedGuide } from "@/components/embed-guide";
+import { scriptTag } from "@/lib/embed";
 import { api, type Kb, type Token } from "./api";
 import { Hint } from "./ui";
 
 type Props = { token: Token; kb: Kb; onChange: () => void; onError: (e: unknown) => void };
 
-/** The embed snippet for this chatbot, and the websites allowed to embed it. */
+/** The embed snippet for this chatbot, how to add it on common platforms, and the websites allowed to embed it. */
 export function InstallPanel({ token, kb, onChange, onError }: Props) {
   const [origin, setOrigin] = useState("");
   const [sites, setSites] = useState(kb.websites.join("\n"));
   const [busy, setBusy] = useState(false);
-  const [copied, setCopied] = useState(false);
   useEffect(() => setOrigin(window.location.origin), []);
-  useEffect(() => {
-    if (!copied) return;
-    const t = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(t);
-  }, [copied]);
-
-  const snippet = `<script src="${origin}/widget.js" data-kb="${kb.slug}" async></script>`;
 
   async function save(e: FormEvent) {
     e.preventDefault();
@@ -40,21 +33,21 @@ export function InstallPanel({ token, kb, onChange, onError }: Props) {
   return (
     <div className="flex flex-col gap-6">
       <Card>
-        <CardContent className="flex flex-col gap-2">
-          <h2 className="font-medium">Add the chatbot to your website</h2>
-          <p className="text-sm text-muted-foreground">Paste this line before <code>&lt;/body&gt;</code> on every page that should show the chat button.</p>
-          <div className="relative">
-            <pre className="overflow-x-auto rounded-lg border bg-muted py-3 pr-24 pl-4 font-mono text-xs leading-5"><code>{snippet}</code></pre>
-            <Button
-              variant="outline"
-              size="sm"
-              className="absolute top-2 right-2 bg-card"
-              onClick={() => navigator.clipboard.writeText(snippet).then(() => { setCopied(true); toast.success("Embed code copied"); }, onError)}
-            >
-              {copied ? <Check data-icon="inline-start" aria-hidden="true" /> : <Copy data-icon="inline-start" aria-hidden="true" />}
-              {copied ? "Copied" : "Copy"}
-            </Button>
+        <CardContent className="flex flex-col gap-3">
+          <div>
+            <h2 className="font-medium">Add the chatbot to your website</h2>
+            <p className="text-sm text-muted-foreground">One line, before <code>&lt;/body&gt;</code>, on every page that should show the chat button.</p>
           </div>
+          <CodeBlock file="Embed code" text={scriptTag(origin, kb.slug)} />
+        </CardContent>
+      </Card>
+      <Card>
+        <CardContent className="flex flex-col gap-3">
+          <div>
+            <h2 className="font-medium">Step by step for your platform</h2>
+            <p className="text-sm text-muted-foreground">The code below already has this chatbot’s address and id filled in.</p>
+          </div>
+          {origin && <EmbedGuide host={origin} slug={kb.slug} />}
         </CardContent>
       </Card>
       <Card>

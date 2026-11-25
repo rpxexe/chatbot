@@ -36,6 +36,8 @@ import { Notifications } from "./notifications";
 import { toast } from "sonner";
 
 const TOKEN_KEY = "kb-admin-token";
+const KB_KEY = "kb-admin-chatbot";
+const savedKb = () => { try { return Number(localStorage.getItem(KB_KEY)) || null; } catch { return null; } };
 const store = {
   get: () => { try { return sessionStorage.getItem(TOKEN_KEY) ?? ""; } catch { return ""; } },
   set: (v: string) => { try { v ? sessionStorage.setItem(TOKEN_KEY, v) : sessionStorage.removeItem(TOKEN_KEY); } catch {} },
@@ -113,6 +115,11 @@ function TokenAdmin() {
 function Dashboard({ token, account, onUnauthorized }: { token: Token; account: ReactNode; onUnauthorized?: (msg: string) => void }) {
   const [kbs, setKbs] = useState<Kb[] | null>(null);
   const [kbId, setKbId] = useState<number | null>(null);
+  // The chosen chatbot survives a reload (this browser only). An id the account no longer has falls back to the first.
+  const selectKb = useCallback((id: number) => {
+    setKbId(id);
+    try { localStorage.setItem(KB_KEY, String(id)); } catch {}
+  }, []);
   const [categories, setCategories] = useState<Category[]>([]);
   const [intents, setIntents] = useState<Intent[]>([]);
   const [tab, setTabState] = useState<Tab>("faqs");
@@ -138,7 +145,8 @@ function Dashboard({ token, account, onUnauthorized }: { token: Token; account: 
     api<Kb[]>(token, "/kbs")
       .then((list) => {
         setKbs(list);
-        setKbId((cur) => (cur && list.some((k) => k.id === cur) ? cur : list[0]?.id ?? null));
+        const has = (id: number | null) => id != null && list.some((k) => k.id === id);
+        setKbId((cur) => (has(cur) ? cur : has(savedKb()) ? savedKb() : list[0]?.id ?? null));
         // A chatbot with no content yet opens on the setup guide.
         if (firstLoad.current && !tabFromUrl() && list[0] && list[0].faq_count + list[0].document_count === 0) setTab("setup");
         firstLoad.current = false;
@@ -166,14 +174,14 @@ function Dashboard({ token, account, onUnauthorized }: { token: Token; account: 
             <Logo className="h-5 shrink-0" />
             <span className="group-data-[collapsible=icon]:hidden">Footnote</span>
           </Link>
-          <ChatbotSwitcher token={token} kbs={kbs ?? []} kb={kb} onSelect={setKbId} onChange={bump} onError={fail} />
+          <ChatbotSwitcher token={token} kbs={kbs ?? []} kb={kb} onSelect={selectKb} onChange={bump} onError={fail} />
         </SidebarHeader>
         <SidebarContent className="group-data-[collapsible=icon]:pt-4">
           {kb && NAV.map((group) => (
-            <SidebarGroup key={group.label} className="py-1 group-data-[collapsible=icon]:py-0.5">
+            <SidebarGroup key={group.label} className="py-1 group-data-[collapsible=icon]:py-1.5">
               <SidebarGroupLabel className="h-6 font-normal">{group.label}</SidebarGroupLabel>
               <SidebarGroupContent>
-                <SidebarMenu>
+                <SidebarMenu className="group-data-[collapsible=icon]:gap-1.5">
                   {group.tabs.map(([t, Icon]) => (
                     <SidebarMenuItem key={t}>
                       <NavButton active={tab === t} label={TAB_LABEL[t]} icon={Icon} onSelect={() => setTab(t)} />

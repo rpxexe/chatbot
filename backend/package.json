@@ -7,6 +7,7 @@
     "build": "tsc",
     "start": "node --env-file-if-exists=.env dist/server.js",
     "seed": "tsx --env-file-if-exists=.env src/seed.ts",
+    "import-faqs": "tsx --env-file-if-exists=.env src/import-faqs.ts",
     "test": "tsx --env-file-if-exists=.env --test test/*.test.ts"
   },
   "dependencies": {
